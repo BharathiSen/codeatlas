@@ -8,17 +8,12 @@ interface RepoAnalyzerProps {
 }
 
 export default function RepoAnalyzer({ username, repo }: RepoAnalyzerProps) {
-  const [isAnalyzing, setIsAnalyzing] = useState(true)
   const [hasAnalyzed, setHasAnalyzed] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
   const MAX_RETRIES = 3
 
   const triggerAnalysis = useCallback(async (forceRefresh = false) => {
     try {
-      setIsAnalyzing(true)
-      setError(null)
-      
       const baseUrl = window.location.origin
       
       const response = await fetch(`${baseUrl}/api/collect-repo-data`, {
@@ -40,7 +35,6 @@ export default function RepoAnalyzer({ username, repo }: RepoAnalyzerProps) {
           setTimeout(() => triggerAnalysis(forceRefresh), 2000 * (retryCount + 1))
           return
         }
-        setError(result.error || 'Failed to analyze repository')
         console.error('Failed to analyze repository:', result.error)
       } else {
         setHasAnalyzed(true)
@@ -49,10 +43,7 @@ export default function RepoAnalyzer({ username, repo }: RepoAnalyzerProps) {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      setError(errorMessage)
       console.error('Error analyzing repository:', errorMessage)
-    } finally {
-      setIsAnalyzing(false)
     }
   }, [username, repo, retryCount])
 
@@ -65,7 +56,6 @@ export default function RepoAnalyzer({ username, repo }: RepoAnalyzerProps) {
   // Reset states when username/repo changes
   useEffect(() => {
     setHasAnalyzed(false)
-    setError(null)
     setRetryCount(0)
   }, [username, repo])
 

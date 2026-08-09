@@ -20,13 +20,13 @@ export function AIRateLimit() {
   const fetchRateLimit = async () => {
     try {
       const response = await fetch('/api/rate-limit');
-      const data = await response.json();
+      const payload = await response.json();
 
-      if (data.success) {
+      if (payload.success && payload.data) {
         setRateLimit({
-          remaining: data.remaining,
-          limit: data.limit,
-          resetAt: data.resetAt,
+          remaining: payload.data.remaining,
+          limit: payload.data.limit,
+          resetAt: payload.data.resetAt,
         });
       } else {
         setRateLimit(null);

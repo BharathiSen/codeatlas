@@ -1,7 +1,12 @@
 import { logger } from "@/lib/logger";
-import { spawn } from 'child_process';
-import path from 'path';
-import fs from 'fs';
+import { RedisCacheManager } from "./redis-cache-manager";
+
+export interface GitIngestData {
+  tree: string;
+  content: string;
+  success?: boolean;
+  error?: string;
+}
 
 /**
  * Generate a prompt for the LLM to answer a query using the codebase data from GitIngest.
@@ -170,27 +175,25 @@ Your response should be helpful, accurate, and directly address the user's query
 }
 
 /**
- * Get repository data from cache for prompt generation.
- * 
+ * Read cached repository data for prompt generation.
+ *
+ * Ingestion is owned solely by `POST /api/collect-repo-data`, which populates the
+ * Redis cache. Callers are expected to have warmed the cache before reaching here;
+ * on a miss this reports the miss rather than returning placeholder text, so the
+ * caller can choose its own fallback instead of sending filler to the model.
+ *
  * @param username GitHub repository owner
  * @param repo GitHub repository name
- * @returns Object containing tree and content data
+ * @returns Cached tree and content, or an `error` describing why they are absent
  */
-import { RedisCacheManager } from './redis-cache-manager';
-
-interface GitIngestData {
-  tree: string;
-  content: string;
-  success?: boolean;
-  error?: string;
-}
-
 export async function getRepoDataForPrompt(username: string, repo: string): Promise<GitIngestData> {
+  const repoKey = `${username}/${repo}`;
+
   try {
-    // First try to get data from Redis cache
     const cachedData = await RedisCacheManager.getFromCache(username, repo);
-    if (cachedData) {
-      logger.info(`[GitIngest] Retrieved data from Redis cache for ${username}/${repo}`, { prefix: 'GitIngest' });
+
+    if (cachedData?.tree && cachedData?.content) {
+      logger.info(`Retrieved data from Redis cache for ${repoKey}`, { prefix: 'GitIngest' });
       return {
         tree: cachedData.tree,
         content: cachedData.content,
@@ -198,80 +201,21 @@ export async function getRepoDataForPrompt(username: string, repo: string): Prom
       };
     }
 
-    // If not in cache, use GitIngest to fetch fresh data
-    logger.info(`Retrieving repository data for ${username}/${repo}`, { prefix: 'GitIngest' });
-
-    return new Promise((resolve, reject) => {
-      // Path to the Python bridge script
-      const scriptPath = path.join(process.cwd(), 'lib', 'gitingest_bridge.py');
-
-      // Spawn Python process for fresh data
-      const pythonProcess = spawn('python', [
-        scriptPath,
-        '--username', username,
-        '--repo', repo
-      ]);
-
-      let dataString = '';
-
-      // Collect data from script
-      pythonProcess.stdout.on('data', (data: Buffer) => {
-        dataString += data.toString();
-      });
-
-      // Handle errors
-      pythonProcess.stderr.on('data', (data: Buffer) => {
-        logger.error(`Process error: ${data}`, { prefix: 'GitIngest' });
-      });
-
-      // Process has completed
-      pythonProcess.on('close', async (code: number) => {
-        if (code !== 0) {
-          logger.error(`Process exited with code ${code}`, { prefix: 'GitIngest' });
-          // Return placeholder data as fallback
-          resolve({
-            tree: "Error retrieving repository structure",
-            content: "Error retrieving repository content",
-            error: `Process exited with code ${code}`
-          });
-          return;
-        }
-
-        try {
-          const result = JSON.parse(dataString);
-          if (result.success) {
-            const data: GitIngestData = {
-              tree: result.data.tree,
-              content: result.data.content,
-              success: true
-            };
-            // Save successful GitIngest data to Redis cache
-            await RedisCacheManager.saveToCache(username, repo, data);
-            logger.info(`[GitIngest] Retrieved fresh data - Tree size: ${data.tree.length}, Content size: ${data.content.length}`);
-            resolve(data);
-          } else {
-            logger.error(`GitIngest error: ${result.error}`, { prefix: 'GitIngest' });
-            resolve({
-              tree: "Error: " + result.error,
-              content: "Error: " + result.error,
-              error: result.error
-            });
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          logger.error(`Error parsing GitIngest output: ${errorMessage}`, { prefix: 'GitIngest' });
-          resolve({
-            tree: "Error parsing repository data",
-            content: "Error parsing repository data",
-            error: `Failed to parse output: ${errorMessage}`
-          });
-        }
-      });
-    });
-
+    logger.warn(`No cached repository data for ${repoKey}`, { prefix: 'GitIngest' });
+    return {
+      tree: '',
+      content: '',
+      success: false,
+      error: `No cached data for ${repoKey}. Ingest it via /api/collect-repo-data first.`
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(`Error getting repository data: ${errorMessage}`, { prefix: 'GitIngest' });
-    throw error;
+    logger.error(`Error reading cached repository data: ${errorMessage}`, { prefix: 'GitIngest' });
+    return {
+      tree: '',
+      content: '',
+      success: false,
+      error: errorMessage
+    };
   }
 }

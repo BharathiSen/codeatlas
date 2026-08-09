@@ -30,11 +30,4 @@ next-env.d.ts
 # Python cache
 __pycache__/
 
-# CodeAtlas on-disk ingestion cache (regenerable)
-/cache/*
-!/cache/.gitkeep
-
 #
-
-
-rulebook.md

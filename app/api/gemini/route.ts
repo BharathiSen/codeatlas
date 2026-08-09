@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { fetchFileContent } from "@/lib/github";
 import { logger } from '@/lib/logger';
-import { generatePrompt, getRepoDataForPrompt } from '@/lib/prompt-generator';
+import { generatePrompt, getRepoDataForPrompt, type GitIngestData } from '@/lib/prompt-generator';
 import { RedisCacheManager } from '@/lib/redis-cache-manager';
-import { RateLimiter } from '@/lib/rate-limiter';
+import { getClientIP, RateLimiter } from '@/lib/rate-limiter';
 
 // Primary and secondary Gemini API clients
 const primaryGenAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -62,34 +62,16 @@ interface ContextStats {
   totalChars: number;
 }
 
-interface GitIngestData {
-  tree: string;
-  content: string;
-  success?: boolean;
-  error?: string;
-}
-
 interface ConversationMessage {
   role: string;
   content: string;
 }
 
-let timeoutId: string | number | NodeJS.Timeout | undefined;
-
-// Helper to get client IP
-function getClientIP(req: Request): string {
-  const forwarded = req.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
-  const realIp = req.headers.get('x-real-ip');
-  if (realIp) {
-    return realIp;
-  }
-  return 'unknown';
-}
-
 export async function POST(req: Request) {
+  // Scoped per request: a module-level handle would be shared across concurrent
+  // requests and cleared by whichever finished first.
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
   try {
     // Get client IP for rate limiting
     const clientIP = getClientIP(req);
@@ -161,7 +143,7 @@ Provide a detailed, technical response that directly addresses the user's query 
         }
 
         // Get repository data from GitIngest
-        let repoData: RepoData | null = null;
+        let repoData: GitIngestData | null = null;
 
         // Check Redis cache first
         try {
@@ -270,11 +252,4 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
       }
     );
   }
-}
-
-interface RepoData {
-  tree: string;
-  content: string;
-  success?: boolean;
-  error?: string;
 }

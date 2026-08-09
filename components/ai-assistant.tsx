@@ -7,9 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   SendHorizontal,
-  Bot,
   User,
-  Sparkles,
   FileQuestion,
   Code,
   Lightbulb,
@@ -23,7 +21,7 @@ import Image from "next/image"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { AIRateLimit } from "@/components/ui/ai-rate-limit"
 import { useGithubStars } from "@/hooks/useGithubStars"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar } from "@/components/ui/avatar"
 
 // Point these at your own CodeAtlas fork to show its star count in the assistant header.
 const CODEATLAS_REPO_OWNER = process.env.NEXT_PUBLIC_CODEATLAS_REPO_OWNER || ""
@@ -241,7 +239,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
                   <div className="prose dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent prose-pre:border-none break-words">
                     <ReactMarkdown
                       components={{
-                        code({ node, className, children, ...props }: any) {
+                        code({ node: _node, className, children, ...props }: any) {
                           const { inline } = props
                           const match = /language-(\w+)/.exec(className || "")
                           return !inline && match ? (

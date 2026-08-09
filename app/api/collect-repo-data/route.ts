@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
             const cachedData = await RedisCacheManager.getFromCache(username, repo);
             if (cachedData) {
                 logger.info(`Retrieved data from cache for ${repoUrl}`, { prefix: 'GitIngest' });
-                return NextResponse.json(cachedData);
+                return NextResponse.json({ success: true, cached: true, data: cachedData });
             }
         }
 
@@ -124,16 +124,11 @@ export async function POST(req: NextRequest) {
             data.files = [];
         }
 
-        // Save successful response to cache
+        // Save successful response to cache, then return exactly what was cached so
+        // the hit and miss paths are indistinguishable to callers.
         await RedisCacheManager.saveToCache(username, repo, data);
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                ...result,
-                success: true
-            }
-        });
+        return NextResponse.json({ success: true, cached: false, data });
     } catch (error) {
         logger.error('Error collecting repository data: ' + (error instanceof Error ? error.message : 'Unknown error'), { prefix: 'GitIngest' });
         return NextResponse.json(

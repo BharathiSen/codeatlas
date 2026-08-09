@@ -95,7 +95,7 @@ export default function Home() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ username, repo, force: true }), // force: true to ensure fresh fetch
+          body: JSON.stringify({ username, repo, force_refresh: true }), // bypass the cache on an explicit analysis
         });
 
         const gitIngestResult = await gitIngestResponse.json();
@@ -199,10 +199,7 @@ export default function Home() {
                       ref={inputRef}
                       autoFocus
                       aria-label="GitHub repository URL"
-                      onPaste={(e) => {
-                        e.stopPropagation()
-                        const pastedText = e.clipboardData.getData('text')
-                      }}
+                      onPaste={(e) => e.stopPropagation()}
                     />
                   </div>
                   <Button

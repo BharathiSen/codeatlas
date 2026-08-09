@@ -17,7 +17,6 @@ interface RepoLayoutProps {
 
 export default function RepoLayout({ repoData, username, repo }: RepoLayoutProps) {
     const [isLeftCollapsed, setIsLeftCollapsed] = useState(false)
-    const [isRightCollapsed, setIsRightCollapsed] = useState(false)
 
     return (
         <div className="h-screen bg-background text-foreground font-sans overflow-hidden">
@@ -74,8 +73,6 @@ export default function RepoLayout({ repoData, username, repo }: RepoLayoutProps
                     minSize={20}
                     maxSize={50}
                     collapsible={true}
-                    onCollapse={() => setIsRightCollapsed(true)}
-                    onExpand={() => setIsRightCollapsed(false)}
                 >
                     <div className="h-full flex flex-col min-w-0">
                         <AiAssistant username={username} repo={repo} />

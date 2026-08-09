@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
   const repo = searchParams.get("repo");
 
   if (!path || !username || !repo) {
-    return new Response(JSON.stringify({ error: "Missing required parameters" }), {
+    return new Response(JSON.stringify({ success: false, error: "Missing required parameters" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
         timestamp: Date.now(), // Update access time
       });
 
-      return new Response(JSON.stringify(content), {
+      return new Response(JSON.stringify({ success: true, data: content }), {
         status: 200,
         headers: {
           "Content-Type": "application/json",
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
         content = Buffer.from(response.data.content, "base64").toString();
       }
     } else {
-      return new Response(JSON.stringify({ error: "Invalid response format or path points to a directory" }), {
+      return new Response(JSON.stringify({ success: false, error: "Invalid response format or path points to a directory" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
     // Prune cache if it exceeds size limit
     pruneCache();
 
-    return new Response(JSON.stringify(trimmedContent), {
+    return new Response(JSON.stringify({ success: true, data: trimmedContent }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    return new Response(JSON.stringify({ success: false, error: errorMessage }), {
       status: statusCode,
       headers: { "Content-Type": "application/json" },
     });

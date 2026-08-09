@@ -5,7 +5,6 @@ import { useState, useEffect } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import ReactMarkdown from "react-markdown"
-import Image from "next/image"
 import dynamic from 'next/dynamic'
 import NotebookViewer from './notebook-viewer'
 import "../styles/markdown.css"
@@ -126,12 +125,13 @@ export default function FileViewer({ repoData }: FileViewerProps) {
           },
         })
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to fetch file content')
+        const payload = await response.json()
+
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.error || 'Failed to fetch file content')
         }
 
-        const content = await response.json()
+        const content: string = payload.data
         setFileContent(content)
 
         // For image files, we need to handle base64 encoding
@@ -245,9 +245,12 @@ export default function FileViewer({ repoData }: FileViewerProps) {
                 >
                   {/* Checkerboard background for transparency */}
                   <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+                  {/* next/image is not usable here: the source is a base64 data URI of
+                      unknown intrinsic size, rendered under a CSS zoom transform. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={base64Content}
-                    alt="File content"
+                    alt={filePath ? `Preview of ${filePath}` : "File preview"}
                     className="max-w-full max-h-[80vh] object-contain shadow-lg rounded-sm"
                   />
                 </div>
@@ -293,20 +296,26 @@ export default function FileViewer({ repoData }: FileViewerProps) {
                   remarkPlugins={[remarkGfm]}
                   components={{
                     // Handle video elements directly
-                    video: ({ node, ...props }) => (
+                    video: ({ node: _node, ...props }) => (
                       <video
                         controls
                         className="w-full max-w-3xl mx-auto rounded-lg shadow-lg my-4"
                         {...props}
                       />
                     ),
-                    img: ({ node, ...props }) => (
+                    // Markdown images point at arbitrary remote hosts with no known
+                    // intrinsic size, so next/image cannot render them. `alt` is
+                    // declared before the spread so markdown-supplied alt text wins,
+                    // and images without it degrade to decorative.
+                    img: ({ node: _node, ...props }) => (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
+                        alt=""
                         className="rounded-lg shadow-sm max-w-full h-auto"
                         {...props}
                       />
                     ),
-                    a: ({ node, ...props }) => (
+                    a: ({ node: _node, ...props }) => (
                       <a className="text-emerald-500 hover:underline" {...props} />
                     )
                   }}

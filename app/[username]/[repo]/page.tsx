@@ -1,15 +1,7 @@
-import { Suspense } from "react"
-import FileExplorer from "@/components/file-explorer"
-import AiAssistant from "@/components/ai-assistant"
-import FileViewer from "@/components/file-viewer"
-import RepoAnalyzer from "@/components/repo-analyzer"
 import RepoLayout from "@/components/repo-layout"
 import { fetchRepoData } from "@/lib/github"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Metadata } from "next"
-import { notFound, useRouter } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { notFound } from "next/navigation"
 
 interface RepoPageProps {
   params: Promise<{
@@ -39,7 +31,7 @@ export default async function RepoPage({ params }: RepoPageProps) {
     return (
       <RepoLayout repoData={repoData} username={username} repo={repo} />
     )
-  } catch (error) {
+  } catch {
     notFound()
   }
 }

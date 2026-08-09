@@ -11,6 +11,27 @@ export interface RateLimitInfo {
   resetAt: number; // Unix timestamp when limit resets
 }
 
+/**
+ * Resolve the caller's IP from proxy headers.
+ *
+ * Shared by every route that consults the rate limiter so the quota key is
+ * derived identically everywhere. Note that these headers are only trustworthy
+ * behind a proxy that sets them; see the notebook's known limitations.
+ */
+export function getClientIP(req: Request): string {
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+
+  const realIp = req.headers.get('x-real-ip');
+  if (realIp) {
+    return realIp;
+  }
+
+  return 'unknown';
+}
+
 export class RateLimiter {
   private static redis: Redis;
 

@@ -148,7 +148,7 @@ sequenceDiagram
     participant W as Workspace page
 
     U->>H: Enter owner/repo
-    H->>CRD: POST {username, repo, force: true}
+    H->>CRD: POST {username, repo, force_refresh: true}
     CRD->>RD: GET repo_data:owner:repo
     RD-->>CRD: miss
     CRD->>ING: POST /ingest/ {github_link}
@@ -212,11 +212,9 @@ codeatlas/
 │   │   ├── page.tsx              GitHub user profile + repository picker (client-side)
 │   │   └── [repo]/page.tsx       Workspace entry; server-fetches the tree, renders RepoLayout
 │   └── api/
-│       ├── collect-repo-data/    Ingest + cache a repository (primary ingestion route)
-│       ├── analyze-repo/         Superseded near-duplicate of the above — see §7
+│       ├── collect-repo-data/    Ingest + cache a repository (sole ingestion route)
 │       ├── gemini/               Main answering endpoint
 │       ├── file-content/         Single-file fetch with in-process LRU cache
-│       ├── analyze/              Dead OpenAI-based stub — see §7
 │       └── rate-limit/           Read current quota for the caller's IP
 │
 ├── components/
@@ -231,17 +229,13 @@ codeatlas/
 │   ├── enhanced-loading.tsx      Loading state with phase text
 │   ├── animated-text.tsx         Typewriter effect for the hero
 │   ├── theme-provider.tsx        next-themes wrapper
-│   ├── repo-summary.tsx          ⚠️ DEAD — hardcoded mock content, not imported
-│   ├── repo-chat.tsx             ⚠️ DEAD — superseded by ai-assistant.tsx
-│   ├── repo-explorer.tsx         ⚠️ DEAD — superseded by file-explorer.tsx
 │   └── ui/                       shadcn/ui primitives (~50 files, mostly untouched)
 │
 ├── lib/
 │   ├── github.ts                 Octokit client, token validation, tree fetch, 30-min memo cache
 │   ├── prompt-generator.ts       Prompt assembly + repo-data retrieval helper
 │   ├── redis-cache-manager.ts    Redis repository cache (6h TTL)
-│   ├── cache-manager.ts          On-disk JSON cache fallback (6h TTL)
-│   ├── rate-limiter.ts           Per-IP daily AI quota in Redis
+│   ├── rate-limiter.ts           Per-IP daily AI quota + shared getClientIP()
 │   ├── logger.ts                 Structured console logger with domain-specific helpers
 │   └── utils.ts                  `cn()` class merge helper
 │
@@ -260,12 +254,14 @@ codeatlas/
 │
 ├── cache/                        On-disk ingestion cache (gitignored contents)
 ├── public/                       logo.svg (original CodeAtlas mark), placeholder assets, webfonts
-├── styles/                       markdown.css + a second globals.css — see §7
+├── styles/                       markdown.css (imported by file-viewer)
 │
 ├── .env.example                  Documented environment contract
+├── .eslintrc.json                Lint config: next/core-web-vitals + no-unused-vars
+├── LICENSE                       MIT
 ├── Dockerfile                    Web app image (multi-stage, pnpm)
 ├── render.yaml                   Ingestion service deployment
-├── next.config.mjs               Next config (⚠️ build-error suppression on)
+├── next.config.mjs               Next config (TypeScript and ESLint enforced)
 ├── tailwind.config.ts            Design tokens
 └── components.json               shadcn/ui configuration
 ```
@@ -280,16 +276,16 @@ codeatlas/
 | --- | --- | --- | --- |
 | Framework | Next.js (App Router) | 15.3.6 | Server components for the workspace shell; route handlers for the API |
 | UI runtime | React | 19 | |
-| Language | TypeScript | 5.x | ⚠️ Build-time type errors are currently suppressed |
+| Language | TypeScript | 5.x | `strict: true`; enforced at build time |
 | Styling | Tailwind CSS | 3.4.17 | `tailwindcss-animate`, CSS custom properties for theming |
 | Components | shadcn/ui + Radix UI | — | `components.json`, neutral base colour, `lucide` icons |
 | Theming | next-themes | 0.4.4 | Dark-locked at the root layout today |
 | Markdown | react-markdown + remark-gfm + rehype-raw | — | Renders assistant output |
-| Syntax highlighting | react-syntax-highlighter, prism-react-renderer | — | Two highlighters present — consolidate |
-| Documents | @react-pdf/renderer, react-pdf | — | PDF viewing |
+| Syntax highlighting | react-syntax-highlighter | — | |
+| Documents | react-pdf | — | PDF viewing |
 | Layout | react-resizable-panels | 2.1.7 | Three-pane workspace |
-| Forms/validation | react-hook-form, zod | — | Present; barely used |
-| Charts | recharts | 2.15.0 | Present; unused |
+| Forms/validation | react-hook-form | — | Used only by the unreferenced `ui/form` primitive |
+| Charts | recharts | 2.15.0 | Used only by the unreferenced `ui/chart` primitive |
 | Telemetry | @vercel/analytics, @vercel/speed-insights | — | Plus optional env-gated Rybbit |
 
 ### AI and data
@@ -309,7 +305,9 @@ FastAPI ≥ 0.112, Uvicorn ≥ 0.30, gitingest ≥ 0.3.1, httpx, aiohttp, pydant
 
 ### Declared-but-unused dependencies
 
-`@supabase/supabase-js`, `supabase` (CLI), `@ai-sdk/openai`, `ai`, `recharts`, `chalk`, `embla-carousel-react`, `input-otp`, `vaul`, `date-fns`, `react-day-picker`. Declared in `package.json` but never imported anywhere in the codebase. `TODO` — audit and prune ([§16](#16-todo-checklist)).
+Phase 1 removed nine packages that nothing imported: `@supabase/supabase-js`, `supabase` (CLI), `@ai-sdk/openai`, `ai`, `@react-pdf/renderer`, `prism-react-renderer`, `@hookform/resolvers`, `zod` and `@types/chalk`. `date-fns` is retained as a `react-day-picker` peer dependency.
+
+Seven remain that are imported by exactly one shadcn primitive which nothing else references — `react-day-picker`, `recharts`, `embla-carousel-react`, `vaul`, `input-otp`, `react-hook-form`, `cmdk`. Pruning them means deleting the primitive too, which is a UI-library decision rather than dead-code removal, so it was left for a deliberate call ([§16](#16-todo-checklist)).
 
 ---
 
@@ -343,13 +341,13 @@ Verified against the code as of 2026-08-09.
 
 - **Theme switching** — `ThemeToggle` is rendered in the assistant header, but the root layout hardcodes `className="dark"` with `enableSystem={false}`. Light mode is unreachable in practice.
 - **Conversation history** — `/api/gemini` accepts a `history` array and `generatePrompt` formats it, but `ai-assistant.tsx` never sends one. **Every turn is effectively stateless.** This is the highest-value small fix available.
-- **On-disk cache** — `lib/cache-manager.ts` is complete but only referenced by the superseded `/api/analyze-repo` route. The live path is Redis-only.
 
 ---
 
 ## 7. Known Limitations
 
 Ordered roughly by severity. These are honest liabilities, not a wish list.
+Limitations resolved in Phase 1 have been removed; see [§14](#14-implementation-phases) for what was closed.
 
 ### L1 — Retrieval is prompt-stuffing, not retrieval
 
@@ -368,58 +366,31 @@ Nothing checks size before ingestion. The failure mode for a large repository is
 
 ### L3 — Conversation is stateless
 
-See [§6](#6-existing-features). Follow-up questions ("and what about the other one?") cannot work.
+`/api/gemini` accepts a `history` array and `generatePrompt` formats it, but `ai-assistant.tsx` never sends one. Follow-up questions ("and what about the other one?") cannot work.
 
-### L4 — Broken fallback path in `prompt-generator.ts`
-
-`getRepoDataForPrompt()` spawns `python lib/gitingest_bridge.py` on a cache miss. **That file does not exist in this repository.** The path is reachable whenever Redis misses and the caller is `/api/gemini` directly, and it fails to a placeholder-error string that then gets sent to the model as if it were repository content. Either restore the bridge or delete the branch and route through `/api/collect-repo-data`.
-
-### L5 — Dead and duplicated code
-
-| Item | Problem |
-| --- | --- |
-| `app/api/analyze/route.ts` | Calls OpenAI `gpt-4o` via `@ai-sdk/openai`. Never invoked. Would need an unset `OPENAI_API_KEY`. |
-| `app/api/analyze-repo/route.ts` | ~90% duplicate of `collect-repo-data` with different cache behaviour. Unreferenced. |
-| `components/repo-summary.tsx` | Renders **hardcoded mock text about a billing system**. Would be badly misleading if ever mounted. |
-| `components/repo-chat.tsx`, `repo-explorer.tsx` | Superseded, unimported. |
-| `lib/logger.ts` | `logger.embeddings.*` and `logger.search.*` helpers for a vector pipeline that does not exist. |
-| `styles/globals.css` | A second globals file; `app/globals.css` is the one Tailwind is configured against. |
-| `requirements.txt` (root) | Conflicts with `gitingest-api/requirements.txt` (gitingest 0.1.0 vs ≥0.3.1). |
-| `package.json.update` | Orphan fragment, superseded by `.env.example`. |
-
-### L6 — Build safety is disabled
-
-`next.config.mjs` sets `eslint.ignoreDuringBuilds: true` and `typescript.ignoreBuildErrors: true`. Type errors ship. There is a real one already: `app/[username]/[repo]/page.tsx` imports `useRouter` from `next/navigation` into a server component.
-
-### L7 — Rate limiter fails open
+### L4 — Rate limiter fails open
 
 On any Redis error, `RateLimiter.check()` returns `allowed: true`. A Redis outage removes all AI spend protection. Deliberate tradeoff ([§15 D-5](#15-decisions--tradeoffs)) but unbounded in the wrong direction.
 
-### L8 — IP-based quota is weak
+### L5 — IP-based quota is weak
 
 `x-forwarded-for` is trivially spoofable without a trusted proxy, and shared NATs punish co-located users. No account system exists to do better.
 
-### L9 — Public repositories only
+### L6 — Public repositories only
 
 No GitHub OAuth. Private repositories cannot be ingested.
 
-### L10 — No tests, no CI
+### L7 — No tests, and no CI
 
-Zero test files. No CI workflow. `test_api.py` is a manual smoke script.
+Zero test files, and no CI workflow runs `typecheck` / `lint` / `build` on a pull request. Phase 1 made all three pass locally and added the `typecheck` script; nothing yet enforces them. `test_api.py` is a manual smoke script, not a test suite.
 
-### L11 — Landing page promises unbuilt features
-
-"Dependency Analysis … with visual graphs" and "Documentation Generation … with a single click" are advertised on the landing page. Only README generation exists. `TODO` — build them or remove the claims.
-
-### L12 — No `LICENSE` file
-
-The README and `package.json` declare MIT, but no `LICENSE` file is present. `TODO` — add a `LICENSE` file naming the copyright holder.
-
-### L13 — `render.yaml` schema error
+### L8 — `render.yaml` schema error
 
 The `properties.disk` block is not valid in Render's service schema and is silently ignored (flagged by the editor's YAML validator).
 
----
+### L9 — GitHub client initialises at module load
+
+`lib/github.ts` calls `initializeGitHubClient()` at import time. During `next build`, page-data collection imports the module without a `GITHUB_TOKEN` and logs a caught `Failed to initialize GitHub client` stack trace for each route. The build succeeds and runtime behaviour is unaffected, but the output is noisy and the side effect makes the module awkward to test. Lazy initialisation on first use would remove both problems.
 
 ## 8. Planned Features
 
@@ -440,7 +411,7 @@ Not yet implemented. Nothing here should be treated as committed until it appear
 | Feature | Sketch |
 | --- | --- |
 | **Real retrieval pipeline** | Chunk → embed → vector search → rerank. See [§10](#10-retrieval-pipeline). Unblocks P4. |
-| **Dependency graph** | Parse imports into a graph; render interactively. Already advertised (L11). |
+| **Dependency graph** | Parse imports into a graph; render interactively. |
 | **Persisted sessions** | Named, revisitable conversations per repository. Requires [§11](#11-database-design). |
 | **User accounts** | GitHub OAuth. Prerequisite for private repos and per-user quotas. |
 | **Private repositories** | Ingest with the user's own token, scoped to their session. Needs a careful data-retention policy. |
@@ -540,7 +511,6 @@ There is **no retrieval step**. "Retrieval" today means "read the cache entry an
 | Layer | Key | TTL | Scope | Location |
 | --- | --- | --- | --- | --- |
 | Redis repository cache | `repo_data:{owner}:{repo}` | 6h | Cross-instance | `lib/redis-cache-manager.ts` |
-| On-disk JSON | `cache/{owner}_{repo}_gitingest.json` | 6h | Per-instance | `lib/cache-manager.ts` (superseded path only) |
 | File-content LRU | `{owner}/{repo}/{path}` | 10 min, 100 entries | Per-process | `app/api/file-content/route.ts` |
 | Octokit tree memo | in-module | 30 min | Per-process | `lib/github.ts` |
 | Token validation | in-module | 5 min | Per-process | `lib/github.ts` |
@@ -685,8 +655,12 @@ Ingests a repository (or serves cache) and stores the result in Redis.
 // Request
 { "username": "vercel", "repo": "next.js", "force_refresh": false }
 
-// 200
-{ "success": true, "data": { "summary": "...", "tree": "...", "content": "...", "files": [] } }
+// 200 — identical shape whether served from cache or freshly ingested
+{
+  "success": true,
+  "cached": true,
+  "data": { "summary": "...", "tree": "...", "content": "...", "files": [] }
+}
 ```
 
 | Status | Meaning |
@@ -697,9 +671,7 @@ Ingests a repository (or serves cache) and stores the result in Redis.
 | 413 | Repository too large to process |
 | 500 | `GITINGEST_API_URL` unset, malformed response from the ingestion service, or ingestion failure |
 
-> ⚠️ **Inconsistency:** on a cache hit this route returns the cached object *directly*, but on a miss it returns it wrapped as `{success, data}`. Callers must handle both shapes. `TODO` — normalise.
-
-> ⚠️ **Parameter mismatch:** the landing page sends `force: true`; the handler reads `force_refresh`. The intended cache bypass on first analysis therefore never happens.
+Both paths return the same envelope and the same `data` object that was written to cache; `cached` distinguishes them for observability only. The cache bypass parameter is `force_refresh` on both the client and the handler.
 
 ### `POST /api/gemini` — answering endpoint
 
@@ -730,16 +702,11 @@ Ingests a repository (or serves cache) and stores the result in Redis.
 
 ### `GET /api/file-content` — single file
 
-`?path=<path>&username=<owner>&repo=<name>` → the file content as a JSON string. Text is base64-decoded; binaries (`jpg|jpeg|png|gif|svg|webp|bmp|ico|pdf`) are returned still base64-encoded for the client to decode. Truncates above 50 MB with an explicit marker. `400` missing params · `404` not found · `429` GitHub rate limit · `500` otherwise.
+`?path=<path>&username=<owner>&repo=<name>` → `{ "success": true, "data": "<file contents>" }`. Text is base64-decoded; binaries (`jpg|jpeg|png|gif|svg|webp|bmp|ico|pdf`) are returned still base64-encoded for the client to decode. Truncates above 50 MB with an explicit marker. Errors return `{ "success": false, "error": "..." }`: `400` missing params · `404` not found · `429` GitHub rate limit · `500` otherwise.
 
 ### `GET /api/rate-limit` — quota introspection
 
 Returns `{success, allowed, remaining, limit, resetAt}` for the caller's IP. Read-only; does not increment.
-
-### Deprecated
-
-- `POST /api/analyze-repo` — superseded near-duplicate of `collect-repo-data`. Unreferenced. Remove.
-- `POST /api/analyze` — OpenAI stub. Never called. Remove.
 
 ### Ingestion service (FastAPI)
 
@@ -752,7 +719,7 @@ CORS is `allow_origins=["*"]`. Acceptable while the service is stateless and una
 
 ### Conventions to adopt
 
-`TBD` — no convention is currently enforced. Proposed: every response is `{success: boolean, data?: T, error?: {code, message}}`; errors carry a stable machine-readable `code`; all routes accept and echo a request ID for tracing.
+As of Phase 1 every route returns `{ success: boolean, data?: T, error?: string }`. Two pieces are still `TBD` and belong to Phase 2: promoting `error` to a structured `{ code, message }` so failures are machine-readable, and threading a request ID through for tracing.
 
 ---
 
@@ -794,7 +761,7 @@ Selected file lives in the `?file=` query param, so a workspace view is shareabl
 - No visible streaming — the assistant is silent until the whole answer lands.
 - File paths in answers are plain text, not links (product goal P2).
 - No conversation history across turns is visible *because* there is none (L3).
-- Light mode is unreachable despite the toggle being rendered (L6-adjacent).
+- Light mode is unreachable: the root layout hardcodes `className="dark"` with `enableSystem={false}`, yet a theme toggle is rendered.
 - No mobile layout for the workspace; three resizable panes assume a wide viewport.
 - No empty state for repositories that ingest successfully but contain nothing renderable.
 
@@ -808,20 +775,20 @@ Selected file lives in the `?file=` query param, so a workspace view is shareabl
 
 Established CodeAtlas branding across UI, metadata, configuration and documentation; wrote Repository Intelligence Platform positioning; moved every third-party identifier behind an environment variable and removed those that were hardcoded (analytics site ID, Google site-verification token, external account links); created an original logo mark; added `.env.example`; created this notebook.
 
-### Phase 1 — Foundation and honesty *(next)*
+### Phase 1 - Foundation and honesty [COMPLETE] *(2026-08-09)*
 
-Make the codebase tell the truth about itself before building on it.
+Made the codebase tell the truth about itself before building on it.
 
-- [ ] Delete dead code — `api/analyze`, `api/analyze-repo`, `repo-summary`, `repo-chat`, `repo-explorer`, duplicate `styles/globals.css`, root `requirements.txt`, `package.json.update`
-- [ ] Fix or remove the broken `gitingest_bridge.py` path (L4)
-- [ ] Fix the `force` / `force_refresh` parameter mismatch
-- [ ] Normalise the `collect-repo-data` response shape
-- [ ] Re-enable TypeScript and ESLint in the build; fix what surfaces
-- [ ] Add a `LICENSE` file naming the copyright holder (L12)
-- [ ] Prune unused dependencies
-- [ ] Set up CI: typecheck, lint, build
+- [x] Deleted dead code - `api/analyze`, `api/analyze-repo`, `repo-summary`, `repo-chat`, `repo-explorer`, duplicate `styles/globals.css`, root `requirements.txt`, `package.json.update`, and the vestigial `logger.embeddings.*` / `logger.search.*` helpers
+- [x] Removed the broken `gitingest_bridge.py` path - `getRepoDataForPrompt()` is now a pure cache read that reports a miss instead of returning placeholder text
+- [x] Fixed the `force` / `force_refresh` parameter mismatch
+- [x] Normalised `/api/collect-repo-data` and `/api/file-content` onto one `{ success, data?, error? }` envelope
+- [x] Re-enabled TypeScript and ESLint in the build and fixed everything that surfaced (27 lint errors, all unused bindings or `<img>` violations)
+- [x] Added a `LICENSE` file
+- [x] Pruned 9 unused dependencies
+- [ ] **Not done - CI.** No workflow enforces `typecheck` / `lint` / `build` on a pull request. Carried forward as [L7](#7-known-limitations).
 
-**Exit criterion:** a clean build with checks enabled, and no unreferenced modules.
+**Exit criterion - met locally, not enforced.** `pnpm typecheck`, `pnpm lint` and `pnpm build` all pass with checks on, and no module is unreferenced. Without CI, nothing prevents that regressing.
 
 ### Phase 2 — Correctness and cost control
 
@@ -829,7 +796,7 @@ Make the codebase tell the truth about itself before building on it.
 - [ ] Repository size preflight with a clear refusal path (L2)
 - [ ] Token counting before dispatch; enforce a context budget
 - [ ] Lower `temperature` for factual queries and measure the difference
-- [ ] Decide the rate-limiter fail-open/closed posture deliberately (L7)
+- [ ] Decide the rate-limiter fail-open/closed posture deliberately (L4)
 - [ ] Structured error codes across all routes
 - [ ] First tests: prompt assembly, cache managers, rate limiter
 
@@ -852,14 +819,14 @@ The unblocking phase for product goal P4. Depends on the `TBD` decisions in [§1
 - [ ] Choose the database and stand up migrations
 - [ ] GitHub OAuth
 - [ ] Persisted, revisitable sessions
-- [ ] Per-user quotas replacing IP-based limiting (L8)
-- [ ] Private repository support with a written data-retention policy (L9)
+- [ ] Per-user quotas replacing IP-based limiting (L5)
+- [ ] Private repository support with a written data-retention policy (L6)
 
 ### Phase 5 — Depth
 
 - [ ] Streaming responses
 - [ ] Clickable citations (P2)
-- [ ] Dependency graph visualisation (L11)
+- [ ] Dependency graph visualisation
 - [ ] Mobile-viable workspace
 - [ ] Accessibility audit and remediation
 
@@ -906,7 +873,7 @@ Decisions marked *(pre-existing)* were already baked into the codebase when this
 
 **Decision.** On a Redis error, allow the request.
 **Why.** Availability over cost protection — a cache outage should not take the product down.
-**Cost.** A Redis outage removes all spend protection (L7).
+**Cost.** A Redis outage removes all spend protection (L4).
 **Assessment.** Defensible for a free, low-traffic deployment; **untenable once cost scales**. Phase 2 should make this a deliberate, configurable posture rather than a hardcoded default.
 
 ### D-6 — Synchronous ingestion, no job queue *(pre-existing)*
@@ -920,19 +887,26 @@ Decisions marked *(pre-existing)* were already baked into the codebase when this
 
 **Decision.** 20 AI requests per IP per day.
 **Why.** The only identity available without accounts.
-**Cost.** Spoofable via `x-forwarded-for`; shared NATs punish co-located users (L8).
+**Cost.** Spoofable via `x-forwarded-for`; shared NATs punish co-located users (L5).
 **Resolution.** Superseded by per-user quotas in Phase 4.
 
 ### D-8 — Build-error suppression *(pre-existing)*
 
 **Decision.** `ignoreBuildErrors` and `ignoreDuringBuilds` both `true`.
-**Assessment.** **This is a defect, not a tradeoff.** It converts compile-time failures into runtime ones and hides at least one real bug already (L6). Phase 1 reverses it.
+**Assessment.** **This was a defect, not a tradeoff.** It converted compile-time failures into runtime ones and hid real bugs. **Reversed in Phase 1:** both flags are gone, `tsc --noEmit` and `next lint` are clean, and the production build enforces them.
 
 ### D-9 — All third-party identifiers are environment-driven *(2026-08-09)*
 
 **Decision.** No analytics site ID, site-verification token, repository target or external account link is hardcoded. Each is read from an environment variable and disabled when unset.
 **Why.** Hardcoded identifiers are the most commonly missed part of a rebrand and carry real consequences — a stray verification token lets someone else claim a deployed domain in Search Console, and a stray analytics ID ships your traffic data to an account you do not control.
 **Cost.** The star widget is hidden by default until an operator configures `NEXT_PUBLIC_CODEATLAS_REPO_OWNER` / `_NAME`.
+
+### D-11 — One response envelope, string errors for now *(2026-08-09)*
+
+**Decision.** Every route returns `{ success, data?, error? }`, with `error` as a plain string. `/api/collect-repo-data` also returns `cached: true|false`, and returns the *same object it wrote to cache* on both paths.
+**Why.** The hit and miss paths previously returned different shapes, forcing callers to handle both — and one of them silently didn't. Returning the cached object verbatim makes the two paths indistinguishable by construction rather than by discipline.
+**Why not structured error codes yet.** `{ code, message }` is the right destination, but changing every call site belongs with the error-handling work in Phase 2 rather than being smuggled into a cleanup phase.
+**Cost.** Clients still string-match on `error` for now.
 
 ### D-10 — This notebook is the source of truth *(this project, 2026-08-09)*
 
@@ -944,49 +918,36 @@ Decisions marked *(pre-existing)* were already baked into the codebase when this
 
 ## 16. TODO Checklist
 
+Phase 1 items are removed from this list; what remains is open. See [§14](#14-implementation-phases) for phase ordering.
+
 ### Correctness
 
-- [ ] Fix the broken `lib/gitingest_bridge.py` spawn path (L4) — restore the script or delete the branch
-- [ ] Fix the `force` vs. `force_refresh` parameter mismatch between `app/page.tsx` and `/api/collect-repo-data`
-- [ ] Normalise the `collect-repo-data` cache-hit vs. cache-miss response shapes
-- [ ] Remove the server-component `useRouter` import in `app/[username]/[repo]/page.tsx`
-- [ ] Fix the invalid `properties.disk` block in `render.yaml` (L13)
 - [ ] Wire conversation history from `ai-assistant.tsx` into `/api/gemini` (L3)
+- [ ] Fix the invalid `properties.disk` block in `render.yaml` (L8)
+- [ ] Make the GitHub client initialise lazily instead of at module load (L9)
 
 ### Cleanup
 
-- [ ] Delete `app/api/analyze/route.ts` (dead OpenAI stub)
-- [ ] Delete `app/api/analyze-repo/route.ts` (legacy duplicate)
-- [ ] Delete `components/repo-summary.tsx` (hardcoded mock content)
-- [ ] Delete `components/repo-chat.tsx` and `components/repo-explorer.tsx`
-- [ ] Delete duplicate `styles/globals.css`
-- [ ] Delete root `requirements.txt` (conflicts with `gitingest-api/requirements.txt`)
-- [ ] Delete `package.json.update` (superseded by `.env.example`)
-- [ ] Remove vestigial `logger.embeddings.*` / `logger.search.*` helpers
-- [ ] Prune unused dependencies (Supabase, `@ai-sdk/openai`, `ai`, recharts, chalk, embla, vaul, input-otp, date-fns, react-day-picker)
-- [ ] Consolidate on one syntax highlighter
+- [ ] Decide the fate of the unused shadcn primitives and their dependencies - `calendar`/`react-day-picker`, `chart`/`recharts`, `carousel`/`embla-carousel-react`, `drawer`/`vaul`, `input-otp`, `form`/`react-hook-form`, `command`/`cmdk`. Each is imported only by its own unreferenced primitive, so the dependency cannot be pruned without deleting the component.
+- [ ] Remove `logger.repoAnalysis.*`, which nothing calls
 
 ### Safety and quality
 
-- [ ] Re-enable TypeScript and ESLint in the build (D-8)
-- [ ] Add CI: typecheck, lint, build on every PR
-- [ ] First test suite: prompt assembly, cache managers, rate limiter
+- [ ] Add CI: typecheck, lint, build on every PR (L7)
+- [ ] First test suite: prompt assembly, cache managers, rate limiter (L7)
 - [ ] Repository size preflight before ingestion (L2)
 - [ ] Token counting and an enforced context budget
-- [ ] Evaluate `temperature` 0.2–0.4 against the current 0.8
-- [ ] Make the rate-limiter fail-open posture explicit and configurable (L7)
+- [ ] Evaluate `temperature` 0.2-0.4 against the current 0.8
+- [ ] Promote API `error` strings to structured `{ code, message }`
+- [ ] Make the rate-limiter fail-open posture explicit and configurable (L4)
 - [ ] Tighten ingestion-service CORS from `*`
-- [ ] Write a prompt-injection threat model (§9)
+- [ ] Write a prompt-injection threat model ([§9](#9-ai-pipeline))
 
 ### Product and docs
 
-- [ ] Add a `LICENSE` file naming the copyright holder (L12)
-- [ ] Build or remove the advertised dependency-graph and one-click-docs features (L11)
 - [ ] Record a product demo video (none currently ships)
 - [ ] Add `CONTRIBUTING.md` and a code of conduct
 - [ ] Make light mode reachable, or remove the theme toggle
-
----
 
 ## 17. Future Ideas
 

@@ -2,14 +2,13 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { ChevronDown, ChevronRight, FileCode, FileText, Folder, Search, FileJson, Package, User } from "lucide-react"
+import { ChevronDown, ChevronRight, FileCode, FileText, Folder, Search, FileJson, Package } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
-import { Skeleton } from "@/components/ui/skeleton"
 import { EnhancedLoading } from "@/components/enhanced-loading"
 
 interface FileNode {

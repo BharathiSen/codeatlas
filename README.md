@@ -51,7 +51,7 @@ Three properties follow:
 | **Grounded assistant** | Cites real paths; renders mermaid diagrams for architecture questions |
 | **Three-pane workspace** | Resizable explorer / viewer / assistant, each collapsible |
 | **More than source** | Code, Jupyter notebooks and PDFs all render in place |
-| **Two-tier cache** | Redis-backed with an on-disk fallback; second visits open immediately |
+| **Warm by default** | Redis-backed repository cache with a 6h TTL; second visits open immediately |
 | **Visible budget** | Per-IP daily quota surfaced live in the UI, with a fallback API key behind it |
 
 ---
@@ -160,7 +160,7 @@ docs/           Engineering notebook — start here
 
 ## Contributing
 
-Read [`docs/ENGINEERING_NOTEBOOK.md`](docs/ENGINEERING_NOTEBOOK.md) first. It records the current architecture, thirteen known limitations, and the decisions already made with their tradeoffs — so a proposal can build on them instead of rediscovering them. Its TODO checklist is the shortest path to a useful first PR.
+Read [`docs/ENGINEERING_NOTEBOOK.md`](docs/ENGINEERING_NOTEBOOK.md) first. It records the current architecture, nine known limitations, and the decisions already made with their tradeoffs — so a proposal can build on them instead of rediscovering them. Its TODO checklist is the shortest path to a useful first PR.
 
 If a change alters the architecture, update the notebook in the same commit.
 

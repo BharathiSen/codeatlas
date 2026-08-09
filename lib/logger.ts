@@ -110,38 +110,6 @@ class Logger {
     }
   };
 
-  // Embedding specific logging methods
-  embeddings = {
-    generating: (text: string) => {
-      this.debug(`Generating embedding for text (${text.length} chars)`, { prefix: 'Embeddings' });
-    },
-    stored: (documentId: string) => {
-      this.success(`Stored embeddings for document: ${documentId}`, { prefix: 'Embeddings' });
-    },
-    error: (error: string) => {
-      this.error(`Embedding error: ${error}`, { prefix: 'Embeddings' });
-    }
-  };
-
-  // Search and embedding specific logging methods
-  search = {
-    start: (query: string) => {
-      this.info(`Starting vector search for query: ${query}`, { prefix: 'Search' });
-    },
-    results: (count: number) => {
-      this.success(`Found ${count} relevant documents`, { prefix: 'Search' });
-    },
-    details: (docs: Array<{ similarity: number; filePath: string }>) => {
-      this.debug('Search results details:', { prefix: 'Search' });
-      docs.forEach(doc => {
-        this.debug(`- ${doc.filePath} (similarity: ${(doc.similarity * 100).toFixed(2)}%)`, { prefix: 'Search' });
-      });
-    },
-    error: (error: string) => {
-      this.error(`Search error: ${error}`, { prefix: 'Search' });
-    }
-  };
-
   // Context preparation logging methods
   context = {
     start: () => {

@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, Star, GitFork, Book, Users, MapPin, Link as LinkIcon, Calendar } from "lucide-react"
+import { Search, Star, GitFork, MapPin, Link as LinkIcon, Calendar } from "lucide-react"
 
 interface Repository {
   id: number
@@ -107,9 +107,12 @@ export default function UserProfilePage() {
         <div className="flex flex-col md:flex-row gap-6 items-start mb-8">
           <div className="relative group">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-600 to-blue-600 rounded-full opacity-75 group-hover:opacity-100 transition duration-200 blur"></div>
-            <img
+            <Image
               src={profile.avatar_url}
-              alt={profile.name}
+              alt={profile.name ? `${profile.name}'s avatar` : `@${profile.login}'s avatar`}
+              width={160}
+              height={160}
+              unoptimized
               className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-zinc-800"
             />
           </div>

@@ -1,2 +1,0 @@
-# CodeAtlas stores its on-disk ingestion cache here (see lib/cache-manager.ts).
-# The .gitkeep file ensures the directory exists after cloning; its contents are gitignored.
