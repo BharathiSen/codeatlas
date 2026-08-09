@@ -229,7 +229,7 @@ codeatlas/
 │   ├── enhanced-loading.tsx      Loading state with phase text
 │   ├── animated-text.tsx         Typewriter effect for the hero
 │   ├── theme-provider.tsx        next-themes wrapper
-│   └── ui/                       shadcn/ui primitives (~50 files, mostly untouched)
+│   └── ui/                       shadcn/ui primitives (43 files; 17 reachable, rest are Radix wrappers)
 │
 ├── lib/
 │   ├── github.ts                 Octokit client, token validation, tree fetch, 30-min memo cache
@@ -284,8 +284,6 @@ codeatlas/
 | Syntax highlighting | react-syntax-highlighter | — | |
 | Documents | react-pdf | — | PDF viewing |
 | Layout | react-resizable-panels | 2.1.7 | Three-pane workspace |
-| Forms/validation | react-hook-form | — | Used only by the unreferenced `ui/form` primitive |
-| Charts | recharts | 2.15.0 | Used only by the unreferenced `ui/chart` primitive |
 | Telemetry | @vercel/analytics, @vercel/speed-insights | — | Plus optional env-gated Rybbit |
 
 ### AI and data
@@ -305,9 +303,13 @@ FastAPI ≥ 0.112, Uvicorn ≥ 0.30, gitingest ≥ 0.3.1, httpx, aiohttp, pydant
 
 ### Declared-but-unused dependencies
 
-Phase 1 removed nine packages that nothing imported: `@supabase/supabase-js`, `supabase` (CLI), `@ai-sdk/openai`, `ai`, `@react-pdf/renderer`, `prism-react-renderer`, `@hookform/resolvers`, `zod` and `@types/chalk`. `date-fns` is retained as a `react-day-picker` peer dependency.
+Phase 1 removed eighteen packages in two passes.
 
-Seven remain that are imported by exactly one shadcn primitive which nothing else references — `react-day-picker`, `recharts`, `embla-carousel-react`, `vaul`, `input-otp`, `react-hook-form`, `cmdk`. Pruning them means deleting the primitive too, which is a UI-library decision rather than dead-code removal, so it was left for a deliberate call ([§16](#16-todo-checklist)).
+The first pass took nine that nothing imported at all: `@supabase/supabase-js`, `supabase` (CLI), `@ai-sdk/openai`, `ai`, `@react-pdf/renderer`, `prism-react-renderer`, `@hookform/resolvers`, `zod` and `@types/chalk`.
+
+The second pass took nine more that were imported by exactly one unreachable shadcn primitive: `recharts`, `embla-carousel-react`, `vaul`, `input-otp`, `react-day-picker`, `date-fns`, `react-hook-form`, `cmdk` and `sonner`. Each primitive was deleted with its dependency — see [§15 D-11](#15-decisions--tradeoffs).
+
+Twenty-six pure-Radix primitives in `components/ui` are still unreachable from any page. They were kept: each is a thin wrapper over a `@radix-ui/*` package already in the tree, so they cost little and are the expected surface of a shadcn/ui project ([§15 D-11](#15-decisions--tradeoffs)).
 
 ---
 
@@ -380,17 +382,9 @@ On any Redis error, `RateLimiter.check()` returns `allowed: true`. A Redis outag
 
 No GitHub OAuth. Private repositories cannot be ingested.
 
-### L7 — No tests, and no CI
+### L7 — No tests
 
-Zero test files, and no CI workflow runs `typecheck` / `lint` / `build` on a pull request. Phase 1 made all three pass locally and added the `typecheck` script; nothing yet enforces them. `test_api.py` is a manual smoke script, not a test suite.
-
-### L8 — `render.yaml` schema error
-
-The `properties.disk` block is not valid in Render's service schema and is silently ignored (flagged by the editor's YAML validator).
-
-### L9 — GitHub client initialises at module load
-
-`lib/github.ts` calls `initializeGitHubClient()` at import time. During `next build`, page-data collection imports the module without a `GITHUB_TOKEN` and logs a caught `Failed to initialize GitHub client` stack trace for each route. The build succeeds and runtime behaviour is unaffected, but the output is noisy and the side effect makes the module awkward to test. Lazy initialisation on first use would remove both problems.
+Zero test files. `typecheck` / `lint` / `build` are now enforced on every push and pull request by `.github/workflows/ci.yml`, but nothing asserts *behaviour* — prompt assembly, cache managers and the rate limiter all go unverified. `test_api.py` is a manual smoke script, not a test suite.
 
 ## 8. Planned Features
 
@@ -784,11 +778,14 @@ Made the codebase tell the truth about itself before building on it.
 - [x] Fixed the `force` / `force_refresh` parameter mismatch
 - [x] Normalised `/api/collect-repo-data` and `/api/file-content` onto one `{ success, data?, error? }` envelope
 - [x] Re-enabled TypeScript and ESLint in the build and fixed everything that surfaced (27 lint errors, all unused bindings or `<img>` violations)
-- [x] Added a `LICENSE` file
-- [x] Pruned 9 unused dependencies
-- [ ] **Not done - CI.** No workflow enforces `typecheck` / `lint` / `build` on a pull request. Carried forward as [L7](#7-known-limitations).
+- [x] Added a `LICENSE` file (MIT)
+- [x] Pruned 18 unused dependencies across two passes
+- [x] Removed 9 unreachable `components/ui` primitives and the `use-mobile` duplicate
+- [x] Made `lib/github.ts` initialise lazily — no module-load side effect, no build noise
+- [x] Fixed the invalid `properties.disk` block in `render.yaml`
+- [x] Added CI enforcing `typecheck` / `lint` / `build` on every push and pull request
 
-**Exit criterion - met locally, not enforced.** `pnpm typecheck`, `pnpm lint` and `pnpm build` all pass with checks on, and no module is unreferenced. Without CI, nothing prevents that regressing.
+**Exit criterion — met and enforced.** `pnpm typecheck`, `pnpm lint` and `pnpm build` all pass with checks on, no module is unreferenced, and `.github/workflows/ci.yml` fails the build if that regresses. What remains untested is *behaviour*, not compilation — see [L7](#7-known-limitations).
 
 ### Phase 2 — Correctness and cost control
 
@@ -914,6 +911,13 @@ Decisions marked *(pre-existing)* were already baked into the codebase when this
 **Why.** The failure mode of a young project is not absent knowledge but *unlocatable* knowledge. One file that must be read before contributing beats five that might be.
 **Cost.** It must be maintained. A stale notebook is worse than none, because it is trusted. Every PR that changes architecture updates this file in the same commit.
 
+### D-11 — A shadcn primitive earns its keep only if it is free *(2026-08-09)*
+
+**Decision.** An unreachable `components/ui` primitive is deleted if it pulls a dedicated third-party dependency, and kept if it only wraps a `@radix-ui/*` package already present. Nine were deleted (`calendar`, `chart`, `carousel`, `drawer`, `input-otp`, `form`, `command`, `sonner`, plus the `use-mobile` duplicate); twenty-six Radix wrappers stay.
+**Why.** "Delete everything unused" would strip the component library a shadcn project is expected to have; "keep everything" leaves nine packages installed for code no page can reach. The dependency cost is the line that separates the two — a wrapper over an already-installed Radix package is nearly free, a charting library is not.
+**Cost.** Re-adding any deleted primitive means re-running its `shadcn add` command, which also restores the dependency. That is a one-command cost, paid only if the component is actually wanted.
+**Revisit if.** The Radix packages behind the kept wrappers ever stop being shared with reachable components — at which point they stop being free and the same test deletes them.
+
 ---
 
 ## 16. TODO Checklist
@@ -923,8 +927,6 @@ Phase 1 items are removed from this list; what remains is open. See [§14](#14-i
 ### Correctness
 
 - [ ] Wire conversation history from `ai-assistant.tsx` into `/api/gemini` (L3)
-- [ ] Fix the invalid `properties.disk` block in `render.yaml` (L8)
-- [ ] Make the GitHub client initialise lazily instead of at module load (L9)
 
 ### Cleanup
 

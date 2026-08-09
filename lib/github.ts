@@ -102,10 +102,9 @@ async function validateGitHubToken() {
   }
 }
 
-// Initialize GitHub client
-initializeGitHubClient().catch(error => {
-  console.error('Failed to initialize GitHub client:', error);
-});
+// The client is initialised lazily. Every exported entry point awaits
+// initializeGitHubClient() before touching octokit, so there is no module-load
+// side effect: importing this file during a build no longer needs GITHUB_TOKEN.
 
 // Cache configuration
 const CACHE_EXPIRATION_MS = 30 * 60 * 1000; // 30 minutes
@@ -262,6 +261,9 @@ export async function fetchRepoData(username: string, repo: string) {
 
 export async function fetchDirectoryContents(owner: string, repo: string, path: string, fetchContent = false, depth = 0, maxDepth = 2): Promise<FileNode[]> {
   try {
+    // Exported entry point: ensure the client exists before any octokit call.
+    await initializeGitHubClient();
+
     const cacheKey = `${owner}/${repo}/${path}`;
     
     const cachedEntry = fileCache.get(cacheKey);
