@@ -1,27 +1,34 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { JetBrains_Mono, Roboto_Mono, Roboto } from "next/font/google"
+import { Bricolage_Grotesque, IBM_Plex_Sans, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Analytics } from "@vercel/analytics/react"
 import { SpeedInsights } from "@vercel/speed-insights/next"
-import Script from "next/script" 
+import Script from "next/script"
 
-const roboto = Roboto({
+// Body copy and UI.
+const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
-  weight: ["400", "500", "700", "900"],
+  weight: ["400", "500", "600"],
+  display: "swap",
 })
 
-const robotoMono = Roboto_Mono({
+// Display face for headings and the wordmark.
+const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
-  variable: "--font-mono",
-  weight: ["400", "500", "700"],
+  variable: "--font-head",
+  weight: ["400", "600", "700", "800"],
+  display: "swap",
 })
 
+// Every code path, identifier, metric and label.
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-code",
+  variable: "--font-mono",
+  weight: ["400", "500", "600"],
+  display: "swap",
 })
 
 export const metadata: Metadata = {
@@ -66,7 +73,7 @@ export default function RootLayout({
           />
         )}
       </head>
-      <body className={`${roboto.variable} ${robotoMono.variable} ${jetbrainsMono.variable} font-sans`}>
+      <body className={`${ibmPlexSans.variable} ${bricolage.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
           {children}
           <Analytics />

@@ -18,9 +18,9 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        sans: ["var(--font-sans)"],
-        mono: ["var(--font-mono)"],
-        code: ["var(--font-code)"],
+        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        head: ["var(--font-head)", "var(--font-sans)", "sans-serif"],
+        mono: ["var(--font-mono)", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -56,6 +56,11 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Extended palette from the design system
+        faint: "hsl(var(--faint))",
+        "accent-2": "hsl(var(--accent-2))",
+        "accent-3": "hsl(var(--accent-3))",
+        "surface-raised": "hsl(var(--surface-raised))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -79,15 +84,15 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateY(10px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
-        // Cartographic backdrop: contour rings breathe outward, very slowly.
-        "contour-drift": {
-          "0%, 100%": { transform: "scale(1)", opacity: "0.55" },
-          "50%": { transform: "scale(1.06)", opacity: "0.85" },
+        // Status dot on the hero eyebrow.
+        "ca-pulse": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.35" },
         },
-        // Survey marker at the centre of the hero backdrop.
-        "survey-ping": {
-          "0%": { transform: "scale(0.9)", opacity: "0.7" },
-          "70%, 100%": { transform: "scale(2.2)", opacity: "0" },
+        // Terminal caret after the headline.
+        "ca-blink": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0" },
         },
       },
       animation: {
@@ -95,8 +100,8 @@ const config: Config = {
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.5s ease-out both",
         "fade-in-up": "fade-in-up 0.6s ease-out both",
-        "contour-drift": "contour-drift 24s ease-in-out infinite",
-        "survey-ping": "survey-ping 4s cubic-bezier(0, 0, 0.2, 1) infinite",
+        "ca-pulse": "ca-pulse 2s ease-in-out infinite",
+        "ca-blink": "ca-blink 1.1s steps(1) infinite",
       },
     },
   },
