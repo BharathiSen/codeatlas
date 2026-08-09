@@ -1,73 +1,73 @@
 "use client"
 
 import { useState } from "react"
+import { Files, Gauge, Target, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { SHOWCASE_TABS } from "@/lib/site-content"
-import { SHOWCASE_PANELS } from "@/lib/showcase-panels"
-import { SectionHeading } from "@/components/site/section-heading"
-import { ShowcasePanelView } from "@/components/site/showcase-panel"
+import { PLATFORM_POINTS } from "@/lib/site-content"
+import { WorkspaceMock } from "@/components/site/workspace-mock"
+
+const ICONS: Record<string, typeof Target> = {
+  target: Target,
+  files: Files,
+  zap: Zap,
+  gauge: Gauge,
+}
 
 /**
- * Tabbed product tour. Tabs come from `SHOWCASE_TABS`, panels from
- * `SHOWCASE_PANELS`; this component only owns selection and the browser frame.
+ * "Inside the platform" — a selectable list of product claims beside a static
+ * mock of the workspace. Selection reveals the claim's detail; the mock is
+ * illustrative and does not change per selection.
  */
 export function ProductShowcase() {
-  const [activeTab, setActiveTab] = useState(SHOWCASE_TABS[0].id)
-  const panel = SHOWCASE_PANELS[activeTab]
+  const [activeId, setActiveId] = useState(PLATFORM_POINTS[0].id)
 
   return (
-    <section id="platform" className="mx-auto max-w-[1280px] scroll-mt-20 px-6 py-20 lg:px-8 lg:py-24">
-      <SectionHeading
-        align="center"
-        eyebrow="Product"
-        title="Inside the platform"
-        description="One workspace per repository. Every view reads from the same indexed context."
-        className="mb-11"
-      />
+    <section
+      id="platform"
+      className="mx-auto max-w-[1280px] scroll-mt-20 border-t border-border px-6 py-16 lg:px-8 lg:py-20"
+    >
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[320px_1fr] lg:gap-12">
+        <div>
+          <h2 className="m-0 mb-2 font-head text-[28px] font-bold tracking-[-0.02em] text-foreground">
+            Inside the platform
+          </h2>
+          <div aria-hidden="true" className="mb-7 h-0.5 w-9 rounded-full bg-primary" />
 
-      <div role="tablist" aria-label="Product views" className="mb-6 flex flex-wrap justify-center gap-2">
-        {SHOWCASE_TABS.map((tab) => {
-          const selected = tab.id === activeTab
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              id={`showcase-tab-${tab.id}`}
-              aria-selected={selected}
-              aria-controls="showcase-panel"
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "whitespace-nowrap rounded-full border px-3.5 py-2 font-mono text-xs transition-colors",
-                selected
-                  ? "border-transparent bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="ca-ticks ca-ticks-lg overflow-hidden rounded border border-white/20 bg-card shadow-[0_30px_80px_rgba(0,0,0,0.5)]">
-        <div className="flex items-center gap-2 border-b border-dashed border-border bg-surface-raised px-4 py-3">
-          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-[#3d3d44]" />
-          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-[#3d3d44]" />
-          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-[#3d3d44]" />
-          <span className="ml-2 truncate font-mono text-xs text-faint">
-            codeatlas.dev/vercel/next.js/{activeTab}
-          </span>
+          <ul className="flex list-none flex-col gap-1 p-0">
+            {PLATFORM_POINTS.map((point) => {
+              const Icon = ICONS[point.icon] ?? Target
+              const active = point.id === activeId
+              return (
+                <li key={point.id}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveId(point.id)}
+                    aria-expanded={active}
+                    className={cn(
+                      "flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+                      active ? "bg-primary/[0.08] text-primary" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Icon
+                      className={cn("mt-0.5 h-4 w-4 flex-none", active ? "text-primary" : "text-faint")}
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium">{point.title}</span>
+                      {active && (
+                        <span className="mt-1.5 block text-[13px] leading-relaxed text-muted-foreground">
+                          {point.body}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
         </div>
 
-        <div
-          id="showcase-panel"
-          role="tabpanel"
-          aria-labelledby={`showcase-tab-${activeTab}`}
-          tabIndex={0}
-        >
-          <ShowcasePanelView panel={panel} />
-        </div>
+        <WorkspaceMock />
       </div>
     </section>
   )

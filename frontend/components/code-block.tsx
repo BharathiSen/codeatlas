@@ -21,8 +21,8 @@ export function CodeBlock({ language, value }: CodeBlockProps) {
     }
 
     return (
-        <div className="relative w-full max-w-full grid rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 shadow-sm bg-zinc-900 dark:bg-[#282a36] my-4">
-            <div className="flex items-center justify-between px-4 py-2 bg-zinc-800 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-700">
+        <div className="relative w-full max-w-full grid rounded-lg overflow-hidden border border-border shadow-sm bg-card my-4">
+            <div className="flex items-center justify-between px-4 py-2 bg-surface-raised border-b border-border">
                 <div className="flex items-center gap-2 text-muted-foreground">
                     <Terminal className="h-4 w-4" />
                     <span className="text-xs font-mono uppercase">{language || "CODE"}</span>
@@ -33,8 +33,8 @@ export function CodeBlock({ language, value }: CodeBlockProps) {
                 >
                     {isCopied ? (
                         <>
-                            <Check className="h-3.5 w-3.5 text-emerald-400" />
-                            <span className="text-emerald-400">Copied!</span>
+                            <Check className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-primary">Copied!</span>
                         </>
                     ) : (
                         <>
@@ -44,7 +44,7 @@ export function CodeBlock({ language, value }: CodeBlockProps) {
                     )}
                 </button>
             </div>
-            <div className="relative overflow-x-scroll [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-zinc-100/5 dark:[&::-webkit-scrollbar-track]:bg-zinc-800/20 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-600 dark:[&::-webkit-scrollbar-thumb]:bg-zinc-500">
+            <div className="relative overflow-x-scroll [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
                 <SyntaxHighlighter
                     language={language}
                     style={dracula}
@@ -65,7 +65,7 @@ export function CodeBlock({ language, value }: CodeBlockProps) {
                 </SyntaxHighlighter>
             </div>
             {/* Scroll Hint Overlay - Shadow falling from right to inside */}
-            <div className="absolute right-0 top-10 bottom-2.5 w-8 bg-gradient-to-l from-zinc-900/80 to-transparent pointer-events-none dark:from-[#282a36]/80" />
+            <div className="absolute right-0 top-10 bottom-2.5 w-8 bg-gradient-to-l from-card/80 to-transparent pointer-events-none from-card/80" />
         </div>
     )
 }

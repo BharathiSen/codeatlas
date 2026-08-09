@@ -89,11 +89,6 @@ const config: Config = {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.35" },
         },
-        // Terminal caret after the headline.
-        "ca-blink": {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -101,7 +96,6 @@ const config: Config = {
         "fade-in": "fade-in 0.5s ease-out both",
         "fade-in-up": "fade-in-up 0.6s ease-out both",
         "ca-pulse": "ca-pulse 2s ease-in-out infinite",
-        "ca-blink": "ca-blink 1.1s steps(1) infinite",
       },
     },
   },

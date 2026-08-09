@@ -61,7 +61,7 @@ export default function PDFViewer({ pdfData }: PDFViewerProps) {
   if (!pdfUrl) {
     return (
       <div className="flex items-center justify-center w-full h-full">
-        <Skeleton className="w-32 h-32 bg-zinc-800" />
+        <Skeleton className="w-32 h-32 bg-muted" />
       </div>
     )
   }
@@ -89,7 +89,7 @@ export default function PDFViewer({ pdfData }: PDFViewerProps) {
             onLoadError={(error) => setError(error.message)}
             loading={(
               <div className="flex items-center justify-center w-full h-32">
-                <Skeleton className="w-32 h-32 bg-zinc-800" />
+                <Skeleton className="w-32 h-32 bg-muted" />
               </div>
             )}
             error={(

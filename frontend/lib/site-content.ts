@@ -14,25 +14,7 @@ export interface NavLink {
 export interface PipelineStep {
   num: string
   title: string
-  items: string[]
-}
-
-export interface ShowcaseTab {
-  id: string
-  label: string
-}
-
-export interface ComparisonRow {
-  label: string
-  chatgpt: string
-  copilot: string
-  codeatlas: string
-}
-
-export interface Feature {
-  tag: string
-  title: string
-  desc: string
+  blurb: string
 }
 
 export interface FeatureGroup {
@@ -43,9 +25,76 @@ export interface FeatureGroup {
 }
 
 export const NAV_LINKS: NavLink[] = [
-  { href: "/", label: "Home" },
+  { href: "/#platform", label: "Product" },
+  { href: "/#how-it-works", label: "How it works" },
   { href: "/features", label: "Features" },
-  { href: "/docs", label: "Documentation" },
+  { href: "/docs", label: "Docs" },
+]
+
+/** The five assurances in the strip above the footer. */
+export const TRUST_ITEMS: { icon: string; title: string; note: string }[] = [
+  { icon: "lock", title: "Private repos", note: "Coming soon" },
+  { icon: "server", title: "Self-hostable", note: "Docker & source" },
+  { icon: "cpu", title: "Multiple LLMs", note: "Gemini today, pluggable" },
+  { icon: "shield", title: "Never train on your code", note: "Your code stays yours" },
+  { icon: "code", title: "Open source", note: "MIT License" },
+]
+
+/** Cards in the "More pages" row, each previewing a workspace surface. */
+export const MORE_PAGES: { title: string; desc: string; preview: "chat" | "graph" | "tree" | "meter" | "diagram" }[] = [
+  {
+    title: "Chat",
+    desc: "Ask anything about the repo. Answers cite files and line ranges you can open.",
+    preview: "chat",
+  },
+  {
+    title: "Architecture",
+    desc: "High-level module view with generated diagrams and explanations.",
+    preview: "diagram",
+  },
+  {
+    title: "Dependencies",
+    desc: "Visualize dependencies between packages and internal modules.",
+    preview: "graph",
+  },
+  {
+    title: "Code Explorer",
+    desc: "Explore the full tree with syntax highlighting and quick preview.",
+    preview: "tree",
+  },
+  {
+    title: "Usage & Limits",
+    desc: "Daily budget and reset timers — always visible, never a surprise.",
+    preview: "meter",
+  },
+]
+
+/** The selectable list beside the product mock. */
+export const PLATFORM_POINTS: { id: string; title: string; icon: string; body: string }[] = [
+  {
+    id: "grounded",
+    title: "Answers grounded in the whole repo",
+    icon: "target",
+    body: "The full tree and file contents are ingested in one pass, so answers reason about the system rather than the file you happen to have open.",
+  },
+  {
+    id: "more-than-source",
+    title: "Reads more than source",
+    icon: "files",
+    body: "Code, Markdown, notebooks, PDFs and configuration all render in place and all feed the same context.",
+  },
+  {
+    id: "warm",
+    title: "Warm by default",
+    icon: "zap",
+    body: "A repository is ingested once and cached, so returning to it opens immediately instead of re-cloning.",
+  },
+  {
+    id: "bounded",
+    title: "Bounded, visible usage",
+    icon: "gauge",
+    body: "A daily request budget sits in the workspace header with its reset timer, backed by a fallback key.",
+  },
 ]
 
 export const EXAMPLE_REPOS = [
@@ -59,73 +108,21 @@ export const PIPELINE_STEPS: PipelineStep[] = [
   {
     num: "01",
     title: "Ingest",
-    items: [
-      "Clone the repository.",
-      "Read source code, documentation, notebooks, configuration files, and project metadata.",
-      "Build one coherent understanding of the repository.",
-    ],
+    blurb:
+      "We clone the repo and read code, notebooks, docs and configs to build a complete context of your project.",
   },
   {
     num: "02",
     title: "Index",
-    items: [
-      "Parse the repository.",
-      "Build semantic context from the full tree and contents.",
-      "Cache the repository so future questions reuse the same indexed knowledge.",
-    ],
+    blurb:
+      "That context is cached and kept warm, so the map is built once and every question after is answered against the same ground truth.",
   },
   {
     num: "03",
     title: "Interrogate",
-    items: [
-      "Developers ask natural language questions.",
-      "Answers are grounded in repository context.",
-      "Responses cite files, functions, modules, and generate Mermaid diagrams where appropriate.",
-    ],
+    blurb:
+      "Ask in plain language. Answers cite real paths and draw real diagrams, because they are derived from the source rather than recalled.",
   },
-]
-
-export const SHOWCASE_TABS: ShowcaseTab[] = [
-  { id: "overview", label: "Repository Overview" },
-  { id: "architecture", label: "Architecture Summary" },
-  { id: "chat", label: "Repository Chat" },
-  { id: "api", label: "API Explorer" },
-  { id: "module", label: "Module Explorer" },
-  { id: "search", label: "Code Search" },
-  { id: "mermaid", label: "Mermaid Diagrams" },
-  { id: "languages", label: "Supported Languages" },
-]
-
-export const COMPARISON_ROWS: ComparisonRow[] = [
-  { label: "Understands full repository context", chatgpt: "No", copilot: "Partial", codeatlas: "Yes" },
-  { label: "Persistent repository memory", chatgpt: "No", copilot: "No", codeatlas: "Yes" },
-  { label: "Cites files, functions, modules", chatgpt: "No", copilot: "No", codeatlas: "Yes" },
-  { label: "Architecture diagram generation", chatgpt: "No", copilot: "No", codeatlas: "Yes" },
-  { label: "Primary purpose", chatgpt: "General chat", copilot: "Code completion", codeatlas: "Repo understanding" },
-]
-
-export const FEATURES: Feature[] = [
-  { tag: "01", title: "Grounded answers", desc: "Every response is grounded in the whole repository, not a single open file." },
-  { tag: "02", title: "Repository-wide context", desc: "The full tree and contents are ingested in one pass and reused for every question." },
-  { tag: "03", title: "Architecture summaries", desc: "A generated overview of how the system is structured, in plain language." },
-  { tag: "04", title: "File citations", desc: "Answers reference the real paths the explanation came from." },
-  { tag: "05", title: "API flow explanations", desc: "Trace a request through handlers, services, and data layers." },
-  { tag: "06", title: "Mermaid diagram generation", desc: "Architecture and sequence diagrams generated directly from source." },
-  { tag: "07", title: "Notebook and PDF support", desc: "Jupyter notebooks and PDFs render in place alongside source files." },
-  { tag: "08", title: "Code navigation", desc: "Browse the tree and open any file next to the assistant explaining it." },
-  { tag: "09", title: "Repository caching", desc: "One ingestion keeps the workspace warm so repeat visits open immediately." },
-  { tag: "10", title: "README generation", desc: "Draft a professional README from what the repository actually contains." },
-  { tag: "11", title: "Bounded usage", desc: "A visible daily request budget, with a fallback key behind it." },
-  { tag: "12", title: "Zero setup", desc: "Paste any public repository and the workspace opens — no install, no config." },
-]
-
-export const FILE_TYPES = [
-  ".py .ts .go .rs",
-  "Markdown",
-  "Documentation",
-  "PDFs",
-  "Jupyter notebooks",
-  "Config files",
 ]
 
 export const FOOTER_LINKS: NavLink[] = [

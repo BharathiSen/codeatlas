@@ -48,7 +48,7 @@ const QuickPromptButton = ({ icon, label, onClick }: QuickPromptButtonProps) => 
   <Button
     variant="outline"
     size="sm"
-    className="flex items-center gap-1.5 hover:text-emerald-400 text-xs whitespace-nowrap transition-all"
+    className="flex items-center gap-1.5 hover:text-primary text-xs whitespace-nowrap transition-all"
     onClick={onClick}
   >
     {icon}
@@ -162,7 +162,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
       {/* Header */}
       <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-background/50 backdrop-blur-sm z-10">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500/15 via-teal-500/10 to-sky-500/15 flex items-center justify-center border border-primary/25 overflow-hidden">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary/15 via-primary/10 to-accent-3/15 flex items-center justify-center border border-primary/25 overflow-hidden">
             <Image src="/logo.svg" alt="CodeAtlas" width={20} height={20} className="w-5 h-5" />
           </div>
           <div>
@@ -170,8 +170,8 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                 </span>
                 Online
               </span>
@@ -182,7 +182,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
                     href={`https://github.com/${CODEATLAS_REPO_OWNER}/${CODEATLAS_REPO_NAME}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 hover:text-emerald-400 transition-colors"
+                    className="flex items-center gap-1 hover:text-primary transition-colors"
                   >
                     <span className="text-yellow-400">★</span>
                     {stars}
@@ -233,7 +233,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
                 <div
                   className={`rounded-2xl px-5 py-3 shadow-sm text-sm leading-relaxed min-w-0 w-full ${message.role === "user"
                     ? "bg-primary text-primary-foreground rounded-tr-sm"
-                    : "bg-muted border border-border text-black dark:text-zinc-300 rounded-tl-sm"
+                    : "bg-muted border border-border text-foreground rounded-tl-sm"
                     }`}
                 >
                   <div className="prose dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent prose-pre:border-none break-words">
@@ -267,7 +267,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
                         },
                         a({ href, children }) {
                           return (
-                            <a href={href} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-medium">
+                            <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
                               {children}
                             </a>
                           )
@@ -286,7 +286,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
                           return <td className="px-4 py-2 border-b border-border last:border-0">{children}</td>
                         },
                         blockquote({ children }) {
-                          return <blockquote className="border-l-2 border-emerald-500 pl-4 italic text-muted-foreground my-2">{children}</blockquote>
+                          return <blockquote className="border-l-2 border-primary pl-4 italic text-muted-foreground my-2">{children}</blockquote>
                         }
                       }}
                     >
@@ -311,9 +311,9 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
                 </div>
                 <div className="bg-muted border border-border rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm">
                   <div className="flex items-center gap-1.5">
-                    <div className="h-2 w-2 bg-emerald-500/50 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <div className="h-2 w-2 bg-emerald-500/50 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <div className="h-2 w-2 bg-emerald-500/50 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <div className="h-2 w-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <div className="h-2 w-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <div className="h-2 w-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                 </div>
               </div>
@@ -361,7 +361,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
           </div>
 
           <form onSubmit={handleSubmit} className="relative group">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-sky-500/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 via-accent-2/20 to-accent-3/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
             <div className="relative flex gap-2 bg-muted p-2 rounded-xl border border-border shadow-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
               <Textarea
                 placeholder="Ask about this repository..."

@@ -1,8 +1,9 @@
-# render.yaml — CodeAtlas ingestion service
+# render.yaml — CodeAtlas ingestion service (backend/)
 services:
   - type: web
     name: codeatlas-ingest-api
     runtime: python
-    buildCommand: pip install -r gitingest-api/requirements.txt
-    startCommand: uvicorn gitingest-api.main:app --host 0.0.0.0 --port $PORT
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /ping

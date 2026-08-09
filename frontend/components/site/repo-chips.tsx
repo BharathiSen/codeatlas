@@ -10,14 +10,14 @@ interface RepoChipsProps {
 /** One-tap example repositories shown under the command bar. */
 export function RepoChips({ onPick }: RepoChipsProps) {
   return (
-    <div className="mt-2 flex flex-wrap items-center justify-center gap-2.5">
-      <span className="font-mono text-xs text-faint">try:</span>
+    <div className="flex flex-wrap items-center gap-2.5">
+      <span className="text-[13px] text-muted-foreground">Try an example</span>
       {EXAMPLE_REPOS.map((repo) => (
         <button
           key={repo}
           type="button"
           onClick={() => onPick(repo)}
-          className="rounded-full border border-border bg-card px-3 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+          className="rounded-md border border-border bg-card px-2.5 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
         >
           {repo}
         </button>

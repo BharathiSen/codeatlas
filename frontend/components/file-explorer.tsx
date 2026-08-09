@@ -154,11 +154,11 @@ export default function FileExplorer({ repoData }: FileExplorerProps) {
     <div className="flex flex-col h-full bg-background">
       <div className="p-3 border-b border-border">
         <div className="text-lg mb-3 flex items-center gap-1">
-          <Link href={`/${username}`} className="text-emerald-400 hover:text-emerald-300">
+          <Link href={`/${username}`} className="text-primary hover:text-primary">
             {username}
           </Link>
           <span className="text-foreground">/</span>
-          <Link href={`https://github.com/${username}/${repo}`} className="text-foreground hover:text-emerald-300">
+          <Link href={`https://github.com/${username}/${repo}`} className="text-foreground hover:text-primary">
             {repo}
           </Link>
         </div>

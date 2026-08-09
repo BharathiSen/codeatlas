@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { ArrowRight } from "lucide-react"
 import { EnhancedLoading } from "@/components/enhanced-loading"
 import { RepoChips } from "@/components/site/repo-chips"
 
@@ -90,9 +91,9 @@ export function CommandBar() {
   }
 
   return (
-    <div id="map" className="flex w-full max-w-[640px] flex-col gap-3.5 scroll-mt-24">
-      <div className="ca-ticks flex items-center gap-2.5 rounded-sm border border-white/20 bg-card px-4 py-3.5 shadow-[0_0_0_1px_hsl(var(--primary)/0.08),0_12px_40px_rgba(0,0,0,0.4)] focus-within:border-primary/60">
-        <span aria-hidden="true" className="font-mono text-[15px] text-primary">
+    <div id="map" className="flex w-full max-w-[600px] flex-col gap-4 scroll-mt-24">
+      <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-2 pl-4 transition-colors focus-within:border-primary/60">
+        <span aria-hidden="true" className="font-mono text-sm text-primary">
           &gt;
         </span>
         <input
@@ -108,15 +109,20 @@ export function CommandBar() {
               handleAnalyze()
             }
           }}
-          placeholder="github.com/your-org/your-repo"
+          placeholder="github.com/owner/repository"
           aria-label="GitHub repository URL or owner/name"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? "command-bar-error" : undefined}
-          className="min-w-0 flex-1 border-none bg-transparent font-mono text-sm text-foreground outline-none placeholder:text-faint"
+          className="min-w-0 flex-1 border-none bg-transparent py-2 font-mono text-sm text-foreground outline-none placeholder:text-faint"
         />
-        <kbd className="hidden rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-faint sm:inline-block">
-          ⏎
-        </kbd>
+        <button
+          type="button"
+          onClick={handleAnalyze}
+          className="ca-btn-gradient inline-flex flex-none items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold"
+        >
+          Map repository
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
       </div>
 
       {error && (
@@ -124,22 +130,6 @@ export function CommandBar() {
           {error}
         </p>
       )}
-
-      <div className="flex items-center justify-center gap-3">
-        <button
-          type="button"
-          onClick={handleAnalyze}
-          className="rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          Map Repository
-        </button>
-        <a
-          href="#platform"
-          className="rounded-lg border border-white/20 px-5 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary/60"
-        >
-          View Demo
-        </a>
-      </div>
 
       <RepoChips onPick={(repo) => {
         setRepoUrl(repo)

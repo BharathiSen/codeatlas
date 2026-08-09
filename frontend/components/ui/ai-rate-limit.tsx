@@ -81,7 +81,7 @@ export function AIRateLimit() {
       <Tooltip>
         <TooltipTrigger>
           <div className="flex items-center gap-2">
-            <Sparkles className={`h-4 w-4 ${isEmpty ? 'text-red-500' : isLow ? 'text-yellow-500' : 'text-emerald-500'}`} />
+            <Sparkles className={`h-4 w-4 ${isEmpty ? 'text-red-500' : isLow ? 'text-yellow-500' : 'text-primary'}`} />
             <div className="w-16 flex items-center gap-1.5">
               <span className={`text-xs font-medium ${isEmpty ? 'text-red-500' : isLow ? 'text-yellow-500' : 'text-foreground'}`}>
                 {rateLimit.remaining}
@@ -95,8 +95,8 @@ export function AIRateLimit() {
                     : isLow
                       ? 'bg-yellow-500'
                       : theme === 'dark'
-                        ? 'bg-emerald-500'
-                        : 'bg-emerald-600'
+                        ? 'bg-primary'
+                        : 'bg-primary'
                 } transition-all`}
               />
             </div>

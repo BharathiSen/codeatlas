@@ -98,7 +98,7 @@ export default function NotebookViewer({ notebookData }: NotebookViewerProps) {
   if (!notebook) {
     return (
       <div className="flex items-center justify-center w-full h-full">
-        <Skeleton className="w-32 h-32 bg-zinc-800" />
+        <Skeleton className="w-32 h-32 bg-muted" />
       </div>
     )
   }
@@ -108,7 +108,7 @@ export default function NotebookViewer({ notebookData }: NotebookViewerProps) {
       <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
         <div className="flex flex-col gap-4 p-4 min-w-max">
           {notebook.cells.map((cell, index) => (
-            <Card key={index} className="p-4 overflow-hidden bg-zinc-900 border-zinc-800 max-w-[calc(100vw-2rem)] md:max-w-none">
+            <Card key={index} className="p-4 overflow-hidden bg-card border-border max-w-[calc(100vw-2rem)] md:max-w-none">
               {cell.cell_type === 'markdown' ? (
                 <div className="prose prose-invert max-w-none">
                   <ReactMarkdown rehypePlugins={[rehypeRaw]} remarkPlugins={[remarkGfm]}>
@@ -117,8 +117,8 @@ export default function NotebookViewer({ notebookData }: NotebookViewerProps) {
                 </div>
               ) : cell.cell_type === 'code' ? (
                 <div className="flex flex-col gap-2">
-                  <div className="bg-zinc-950 p-3 rounded-md overflow-x-auto">
-                    <pre className="font-mono text-sm text-zinc-300">
+                  <div className="bg-background p-3 rounded-md overflow-x-auto">
+                    <pre className="font-mono text-sm text-muted-foreground">
                       <code>{Array.isArray(cell.source) ? cell.source.join('') : cell.source}</code>
                     </pre>
                   </div>
@@ -128,7 +128,7 @@ export default function NotebookViewer({ notebookData }: NotebookViewerProps) {
                         // Handle stream output (stdout/stderr)
                         if (output.output_type === 'stream' && output.text) {
                           return (
-                            <pre key={outIndex} className="font-mono text-sm text-zinc-400 whitespace-pre-wrap">
+                            <pre key={outIndex} className="font-mono text-sm text-muted-foreground whitespace-pre-wrap">
                               {Array.isArray(output.text) ? output.text.join('') : output.text}
                             </pre>
                           )
@@ -150,7 +150,7 @@ export default function NotebookViewer({ notebookData }: NotebookViewerProps) {
                           }
                           if (output.data['text/plain']) {
                             return (
-                              <pre key={outIndex} className="font-mono text-sm text-zinc-400 whitespace-pre-wrap">
+                              <pre key={outIndex} className="font-mono text-sm text-muted-foreground whitespace-pre-wrap">
                                 {Array.isArray(output.data['text/plain'])
                                   ? output.data['text/plain'].join('')
                                   : output.data['text/plain']}
@@ -169,8 +169,8 @@ export default function NotebookViewer({ notebookData }: NotebookViewerProps) {
         </div>
       </ScrollAreaPrimitive.Viewport>
       <ScrollBar orientation="vertical" />
-      <ScrollBar orientation="horizontal" className="top-0 bottom-auto border-b border-zinc-800/50" />
-      <div className="absolute top-0 right-0 h-full w-16 bg-gradient-to-l from-zinc-950 to-transparent pointer-events-none" />
+      <ScrollBar orientation="horizontal" className="top-0 bottom-auto border-b border-border" />
+      <div className="absolute top-0 right-0 h-full w-16 bg-gradient-to-l from-background to-transparent pointer-events-none" />
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   )

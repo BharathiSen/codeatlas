@@ -36,7 +36,7 @@ export default function RepoLayout({ repoData, username, repo }: RepoLayoutProps
                         <Suspense
                             fallback={
                                 <div className="p-4">
-                                    <Skeleton className="h-[500px] bg-zinc-800" />
+                                    <Skeleton className="h-[500px] bg-muted" />
                                 </div>
                             }
                         >
@@ -55,7 +55,7 @@ export default function RepoLayout({ repoData, username, repo }: RepoLayoutProps
                             <Suspense
                                 fallback={
                                     <div className="p-4">
-                                        <Skeleton className="h-[500px] bg-zinc-800" />
+                                        <Skeleton className="h-[500px] bg-muted" />
                                     </div>
                                 }
                             >

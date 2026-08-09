@@ -237,7 +237,7 @@ export default function FileViewer({ repoData }: FileViewerProps) {
                 <RotateCcw className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex-1 flex items-center justify-center p-4 bg-zinc-100 dark:bg-zinc-900 overflow-hidden">
+            <div className="flex-1 flex items-center justify-center p-4 bg-card overflow-hidden">
               {base64Content ? (
                 <div
                   className="relative transition-transform duration-200 ease-out"
@@ -262,7 +262,7 @@ export default function FileViewer({ repoData }: FileViewerProps) {
         );
       case 'pdf':
         return (
-          <div className="flex flex-col h-full bg-zinc-100 dark:bg-zinc-900">
+          <div className="flex flex-col h-full bg-card">
             {fileContent ? (
               <PDFViewer pdfData={fileContent.startsWith('data:application/pdf;base64,') ? fileContent : `data:application/pdf;base64,${fileContent.replace(/\s/g, '')}`} />
             ) : (
@@ -316,7 +316,7 @@ export default function FileViewer({ repoData }: FileViewerProps) {
                       />
                     ),
                     a: ({ node: _node, ...props }) => (
-                      <a className="text-emerald-500 hover:underline" {...props} />
+                      <a className="text-primary hover:underline" {...props} />
                     )
                   }}
                 >
@@ -333,7 +333,7 @@ export default function FileViewer({ repoData }: FileViewerProps) {
       default:
         return (
           <div className="p-4 bg-card rounded-lg">
-            <pre className="text-sm font-mono whitespace-pre-wrap overflow-x-auto text-zinc-900 dark:text-zinc-300">
+            <pre className="text-sm font-mono whitespace-pre-wrap overflow-x-auto text-muted-foreground">
               <code className="language-text">{fileContent}</code>
             </pre>
           </div>

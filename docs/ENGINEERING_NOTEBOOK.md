@@ -202,69 +202,90 @@ sequenceDiagram
 
 ## 4. Folder Structure
 
+The repository is organised by **deployable unit**, not by language. Each top-level
+directory maps to something that ships or supports shipping: `frontend/` and
+`backend/` are the two services, `docker/` and `.github/` build them, `docs/`
+explains them.
+
 ```
 codeatlas/
-├── app/                          Next.js App Router
-│   ├── layout.tsx                Root layout, fonts, theme provider, CodeAtlas metadata
-│   ├── page.tsx                  Landing page — repo input + marketing sections
-│   ├── globals.css               Global styles and CSS custom properties
-│   ├── [username]/
-│   │   ├── page.tsx              GitHub user profile + repository picker (client-side)
-│   │   └── [repo]/page.tsx       Workspace entry; server-fetches the tree, renders RepoLayout
-│   └── api/
-│       ├── collect-repo-data/    Ingest + cache a repository (sole ingestion route)
-│       ├── gemini/               Main answering endpoint
-│       ├── file-content/         Single-file fetch with in-process LRU cache
-│       └── rate-limit/           Read current quota for the caller's IP
+├── frontend/                     Next.js web application (the deployable web service)
+│   ├── app/                      App Router
+│   │   ├── layout.tsx            Root layout — fonts, theme provider, metadata
+│   │   ├── page.tsx              Landing page (composes components/site/*)
+│   │   ├── globals.css           Design tokens, surface treatments, keyframes
+│   │   ├── features/page.tsx     Marketing: capability groups
+│   │   ├── docs/page.tsx         Documentation reader
+│   │   ├── [username]/
+│   │   │   ├── page.tsx          GitHub profile + repository picker
+│   │   │   └── [repo]/page.tsx   Workspace entry; renders RepoLayout
+│   │   └── api/
+│   │       ├── collect-repo-data/  Ingest + cache a repository (sole ingestion route)
+│   │       ├── gemini/             Answering endpoint
+│   │       ├── file-content/       Single-file fetch with in-process LRU cache
+│   │       └── rate-limit/         Read current quota for the caller's IP
+│   │
+│   ├── components/
+│   │   ├── site/                 Marketing surfaces — see §UI Architecture
+│   │   ├── repo-layout.tsx       Three-pane resizable workspace shell
+│   │   ├── file-explorer.tsx     Left pane — tree navigation
+│   │   ├── file-viewer.tsx       Centre pane — dispatches to the right viewer
+│   │   ├── notebook-viewer.tsx   .ipynb rendering
+│   │   ├── pdf-viewer.tsx        PDF rendering (dynamically imported)
+│   │   ├── code-block.tsx        Syntax-highlighted code with copy
+│   │   ├── ai-assistant.tsx      Right pane — CodeAtlas chat
+│   │   ├── repo-analyzer.tsx     Headless cache-warmer (renders null)
+│   │   ├── enhanced-loading.tsx  Loading state with phase text
+│   │   ├── theme-provider.tsx    next-themes wrapper
+│   │   └── ui/                   shadcn/ui primitives
+│   │
+│   ├── lib/
+│   │   ├── github.ts             Octokit client, lazy init, tree fetch, memo caches
+│   │   ├── prompt-generator.ts   Prompt assembly + cached repo-data reader
+│   │   ├── redis-cache-manager.ts  Redis repository cache (6h TTL)
+│   │   ├── rate-limiter.ts       Per-IP daily quota + shared getClientIP()
+│   │   ├── logger.ts             Structured console logger
+│   │   ├── site-content.ts       Copy + data for the marketing surfaces
+│   │   ├── showcase-panels.ts    Tagged-union data for the product showcase
+│   │   ├── docs-content.ts       Documentation sections
+│   │   └── utils.ts              `cn()` class merge helper
+│   │
+│   ├── hooks/                    useGithubStars, use-mobile, use-toast
+│   ├── public/                   logo.svg
+│   ├── styles/                   markdown.css (imported by file-viewer)
+│   ├── package.json              Frontend manifest — pnpm workspace root for the app
+│   ├── next.config.mjs           TypeScript and ESLint enforced
+│   ├── tailwind.config.ts        Tailwind theme bound to the CSS tokens
+│   ├── .eslintrc.json            next/core-web-vitals + no-unused-vars
+│   └── tsconfig.json             `@/*` → frontend root
 │
-├── components/
-│   ├── repo-layout.tsx           Three-pane resizable workspace shell
-│   ├── file-explorer.tsx         Left pane — tree navigation
-│   ├── file-viewer.tsx           Centre pane — dispatches to the right viewer
-│   ├── notebook-viewer.tsx       .ipynb rendering
-│   ├── pdf-viewer.tsx            PDF rendering (dynamically imported)
-│   ├── code-block.tsx            Syntax-highlighted code with copy
-│   ├── ai-assistant.tsx          Right pane — CodeAtlas chat
-│   ├── repo-analyzer.tsx         Headless cache-warmer (renders null)
-│   ├── enhanced-loading.tsx      Loading state with phase text
-│   ├── animated-text.tsx         Typewriter effect for the hero
-│   ├── theme-provider.tsx        next-themes wrapper
-│   └── ui/                       shadcn/ui primitives (43 files; 17 reachable, rest are Radix wrappers)
-│
-├── lib/
-│   ├── github.ts                 Octokit client, token validation, tree fetch, 30-min memo cache
-│   ├── prompt-generator.ts       Prompt assembly + repo-data retrieval helper
-│   ├── redis-cache-manager.ts    Redis repository cache (6h TTL)
-│   ├── rate-limiter.ts           Per-IP daily AI quota + shared getClientIP()
-│   ├── logger.ts                 Structured console logger with domain-specific helpers
-│   └── utils.ts                  `cn()` class merge helper
-│
-├── hooks/
-│   ├── useGithubStars.ts         Star count for the CodeAtlas repo itself (env-gated)
-│   ├── use-mobile.tsx            Breakpoint hook
-│   └── use-toast.ts              Toast state
-│
-├── gitingest-api/                Python ingestion service
+├── backend/                      Python ingestion service (the deployable API)
 │   ├── main.py                   FastAPI app: POST /ingest/, GET|HEAD /ping
 │   ├── requirements.txt          Authoritative Python deps
-│   └── Procfile                  Process definition
+│   └── tests/                    Ingestion smoke checks
 │
-├── docs/
-│   └── ENGINEERING_NOTEBOOK.md   ← you are here
-│
-├── cache/                        On-disk ingestion cache (gitignored contents)
-├── public/                       logo.svg (original CodeAtlas mark), placeholder assets, webfonts
-├── styles/                       markdown.css (imported by file-viewer)
+├── database/                     Reserved. No database exists yet — see §11.
+├── docker/                       Dockerfile + .dockerignore (build from repo root)
+├── docs/                         ENGINEERING_NOTEBOOK.md ← you are here
+├── .github/workflows/            CI: frontend typecheck/lint/build, backend import check
 │
 ├── .env.example                  Documented environment contract
-├── .eslintrc.json                Lint config: next/core-web-vitals + no-unused-vars
+├── render.yaml                   Ingestion service deployment (rootDir: backend)
+├── CLAUDE.md                     Agent working notes
 ├── LICENSE                       MIT
-├── Dockerfile                    Web app image (multi-stage, pnpm)
-├── render.yaml                   Ingestion service deployment
-├── next.config.mjs               Next config (TypeScript and ESLint enforced)
-├── tailwind.config.ts            Design tokens
-└── components.json               shadcn/ui configuration
+└── README.md
 ```
+
+**Why this shape.** The previous flat layout mixed a Next.js app, a Python
+service and their shared infrastructure at one level, so "where does this file
+go" had no answer and the two services' configs collided in the root. Splitting
+by deployable unit gives each service one obvious home with its own manifest,
+lockfile and lint config, and leaves the root holding only things that describe
+the repository as a whole.
+
+`database/` is currently **empty and intentional**: it reserves the location for
+the schema in [§11](#11-database-design), which is designed but not built. If
+persistence is abandoned, delete the directory rather than leaving it as decor.
 
 ---
 
@@ -721,13 +742,52 @@ As of Phase 1 every route returns `{ success: boolean, data?: T, error?: string 
 
 ### Design language
 
-Dark-first, high-contrast, code-forward. Tailwind tokens over ad-hoc colour. Emerald is the assistant's accent (activity, AI presence); blue and purple carry the marketing surfaces. The workspace should feel closer to an IDE than to a chat app — chat is one pane, not the product.
+Dark-only, high-contrast, code-forward. The reference points are Linear, Cursor, Raycast and Warp — a developer tool that signals engineering quality, not a marketing SaaS site. The workspace should feel closer to an IDE than to a chat app: chat is one pane, not the product.
 
-**Typography:** Roboto (`--font-sans`) · Roboto Mono (`--font-mono`) · JetBrains Mono (`--font-code`) · ChunkFive (`font-chunk`, self-hosted in `public/webfonts/`, hero display only).
+### Design system
 
-### The two surfaces
+**Colour.** A single violet accent on a near-black charcoal ground, defined once as HSL triples in `frontend/app/globals.css` and consumed only through Tailwind tokens. No component hardcodes a hex value or a palette class such as `emerald-500`.
 
-**Landing page** — a single input and one action. The hero types itself out via `AnimatedText`, then a feature section explains the platform. Ingestion runs *before* navigation, with the loading state narrating its phase ("Fetching Repository Data…", "Analyzing repository…", "Repository analyzed successfully!") so a 30–120s wait does not read as a hang.
+| Token | Value | Role |
+| --- | --- | --- |
+| `--background` | `240 11% 4%` (#08080a) | Page ground |
+| `--card` | `240 10% 8%` (#131317) | Elevated surface |
+| `--surface-raised` | `240 9% 11%` (#1a1a1f) | Second elevation — chrome bars, track fills |
+| `--foreground` | `240 8% 95%` (#f1f1f3) | Primary text |
+| `--muted-foreground` | `240 3% 60%` | Secondary text |
+| `--faint` | `240 2% 38%` | Metadata, disabled |
+| `--border` | `240 4% 13%` | Hairline dividers |
+| `--primary` | `258 90% 66%` (#8b5cf6) | Accent, CTAs, focus ring |
+| `--primary-foreground` | `240 11% 4%` | Text on the accent |
+| `--accent-2` | `239 84% 67%` (#6366f1) | Gradient mid-stop, secondary series |
+| `--accent-3` | `217 91% 60%` (#3b82f6) | Gradient end-stop, tertiary series |
+
+Violet is used sparingly and never at full saturation across large areas — it marks the accent, the active state and the focus ring, and everything else is greyscale. That restraint is what separates a developer tool from a marketing page.
+
+**Typography.** Three faces, each with one job. Bricolage Grotesque (`font-head`) for display and the wordmark; IBM Plex Sans (`font-sans`) for body and UI; JetBrains Mono (`font-mono`) for every code path, repository name, metric, command and badge. Mono usage is semantic, not decorative — if it is an identifier the machine cares about, it is mono.
+
+**Surface treatments.** Four utilities in `globals.css` carry the visual language:
+`.ca-grid` (48px blueprint graticule), `.ca-scanlines` (fixed CRT veil),
+`.ca-btn-gradient` (the purple→violet primary action, with a soft violet glow on
+hover), and `.ca-glow-hover` (cards lift with a violet wash rather than a drop
+shadow). Elevation is otherwise expressed with borders and background steps.
+
+**Focus.** A single global `:focus-visible` rule paints a two-tone ring — a
+background-coloured inner ring plus a violet outer ring — so keyboard focus is
+visible on every control regardless of the surface behind it.
+
+**Motion.** Fade, opacity, small translate and gradient shift only — `ca-pulse`
+for the status dot and `ca-scan` for the veil. No bouncing, no spinning beyond
+the single loading indicator. A global `prefers-reduced-motion` block reduces
+every animation and transition to ~0ms.
+
+### The surfaces
+
+**Landing** (`/`) — hero and command bar, the three-stage pipeline, the tabbed product showcase, a comparison table, the capability grid, and a closing CTA. Ingestion runs *before* navigation, with the loading state narrating its phase ("Fetching repository data…", "Analyzing repository…", "Repository analyzed successfully") so a 30–120s wait does not read as a hang.
+
+**Features** (`/features`) — four capability groups rendered from `FEATURE_GROUPS`.
+
+**Docs** (`/docs`) — sticky section index plus a prose column, rendered from `DOC_SECTIONS`. Anchor-linked, so it stays a server component.
 
 **Workspace** (`/{owner}/{repo}`) — three resizable panes:
 
@@ -740,6 +800,60 @@ Dark-first, high-contrast, code-forward. Tailwind tokens over ad-hoc colour. Eme
 ```
 
 Selected file lives in the `?file=` query param, so a workspace view is shareable and back/forward works.
+
+### UI architecture
+
+Marketing components live in `frontend/components/site/` and are composed by the
+page files. Every section is presentational and reads its copy from
+`lib/site-content.ts`, so a content change never touches JSX and no section
+duplicates another's markup.
+
+```
+SiteShell                        grid + scanline veil + navbar + footer
+├── SiteNavbar                   sticky; star pill, Sign in, gradient CTA
+│   └── LogoMark                 shared brand glyph (also used in the mock)
+├── <page sections>
+└── SiteFooter
+
+Landing (app/page.tsx)
+├── Hero                         split layout; artwork right, copy left
+│   ├── ContourArt               inline SVG topographic rings + survey point
+│   └── CommandBar               ← the only ingestion-bearing component
+│       └── RepoChips            ← EXAMPLE_REPOS
+├── HowItWorks                   ← PIPELINE_STEPS, one card, three columns
+├── ProductShowcase              ← PLATFORM_POINTS, selectable list
+│   └── WorkspaceMock            static product imagery
+├── MorePages                    ← MORE_PAGES, each with an abstract preview
+└── TrustStrip                   ← TRUST_ITEMS
+
+Features (app/features/page.tsx) → FEATURE_GROUPS, then CtaBand
+Docs     (app/docs/page.tsx)     → DOC_SECTIONS, SiteShell withFooter={false}
+```
+
+Only `SiteNavbar`, `CommandBar`, `RepoChips` and `ProductShowcase` are client
+components; everything else renders on the server. `CtaBand` is shared by the
+features page and remains available to the landing page.
+
+**Mocks are labelled as mocks.** `WorkspaceMock` and the `MorePages` previews are
+illustrative product imagery, not live views, and say so in their file comments.
+They are built from tokens and primitives rather than screenshots, so they cannot
+drift out of the design system.
+
+### Navigation
+
+| Route | Surface | Rendering |
+| --- | --- | --- |
+| `/` | Landing | Static |
+| `/features` | Capability groups | Static |
+| `/docs` | Documentation reader | Static, anchor-linked |
+| `/{owner}` | GitHub profile + repo picker | Dynamic (client fetch) |
+| `/{owner}/{repo}` | Workspace | Dynamic (server-fetched tree) |
+
+`NAV_LINKS` drives the navbar; the active link is derived from `usePathname()`
+and marked with `aria-current="page"`. The primary CTA targets `/#map`, which
+anchors the command bar. The workspace routes deliberately keep their own
+chrome — they are the application, not the site — and are not wrapped in
+`SiteShell`.
 
 ### Interaction principles
 
@@ -755,11 +869,11 @@ Selected file lives in the `?file=` query param, so a workspace view is shareabl
 - No visible streaming — the assistant is silent until the whole answer lands.
 - File paths in answers are plain text, not links (product goal P2).
 - No conversation history across turns is visible *because* there is none (L3).
-- Light mode is unreachable: the root layout hardcodes `className="dark"` with `enableSystem={false}`, yet a theme toggle is rendered.
-- No mobile layout for the workspace; three resizable panes assume a wide viewport.
+- Light mode is unreachable: the root layout hardcodes `className="dark"` with `enableSystem={false}`, yet a theme toggle is rendered. CodeAtlas is dark-only by design, so the toggle is the thing that should go.
+- No mobile layout for the workspace; three resizable panes assume a wide viewport. The marketing surfaces are responsive from 360px up.
 - No empty state for repositories that ingest successfully but contain nothing renderable.
 
-`PLACEHOLDER` — no formal accessibility audit has been done. Radix primitives give a reasonable baseline (focus management, ARIA), but keyboard navigation across the three panes and screen-reader behaviour for streamed markdown are both unverified.
+`PLACEHOLDER` — no formal accessibility audit has been done. The design migration added the mechanical pieces (`aria-current` on the active nav link, `role="tablist"`/`tab`/`tabpanel` with `aria-selected` and `aria-controls` on the showcase, `aria-invalid` + `aria-describedby` on the command bar, `role="status"` on the loading text, `aria-hidden` on every decorative glyph, and a global reduced-motion block). What is unverified: measured contrast ratios, keyboard traversal across the three workspace panes, and screen-reader behaviour for assistant markdown.
 
 ---
 
@@ -911,12 +1025,26 @@ Decisions marked *(pre-existing)* were already baked into the codebase when this
 **Why.** The failure mode of a young project is not absent knowledge but *unlocatable* knowledge. One file that must be read before contributing beats five that might be.
 **Cost.** It must be maintained. A stale notebook is worse than none, because it is trusted. Every PR that changes architecture updates this file in the same commit.
 
-### D-11 — A shadcn primitive earns its keep only if it is free *(2026-08-09)*
+### D-12 — A shadcn primitive earns its keep only if it is free *(2026-08-09)*
 
 **Decision.** An unreachable `components/ui` primitive is deleted if it pulls a dedicated third-party dependency, and kept if it only wraps a `@radix-ui/*` package already present. Nine were deleted (`calendar`, `chart`, `carousel`, `drawer`, `input-otp`, `form`, `command`, `sonner`, plus the `use-mobile` duplicate); twenty-six Radix wrappers stay.
 **Why.** "Delete everything unused" would strip the component library a shadcn project is expected to have; "keep everything" leaves nine packages installed for code no page can reach. The dependency cost is the line that separates the two — a wrapper over an already-installed Radix package is nearly free, a charting library is not.
 **Cost.** Re-adding any deleted primitive means re-running its `shadcn add` command, which also restores the dependency. That is a one-command cost, paid only if the component is actually wanted.
 **Revisit if.** The Radix packages behind the kept wrappers ever stop being shared with reachable components — at which point they stop being free and the same test deletes them.
+
+### D-13 — One violet accent, expressed only as tokens *(2026-08-09)*
+
+**Decision.** The emerald/teal/sky palette is replaced by a single violet accent (`#8b5cf6`) on near-black charcoal. Colour is defined once as HSL triples in `globals.css` and consumed exclusively through Tailwind tokens — `bg-primary`, `text-muted-foreground`, `border-border`. No component may hardcode a hex value or a raw palette class.
+**Why.** The old landing page fought its own design system: `--primary` was emerald while the hero rendered blue-to-purple gradients, so nothing matched and every new component invented its own colour. A single token layer means a palette change is one file, and it makes the "is this on-system?" question answerable by grep.
+**Cost.** Tailwind's palette shortcuts (`emerald-500`) are no longer available as a quick escape hatch; a genuinely new colour has to be added as a token first. That friction is the point.
+**Enforcement.** `grep -rn "emerald\|teal-\|sky-\|green-" frontend/app frontend/components` must return nothing outside `components/ui/`.
+
+### D-14 — Organise by deployable unit *(2026-08-09)*
+
+**Decision.** Top-level directories are `frontend/`, `backend/`, `docker/`, `database/`, `docs/`, `.github/`. The Next.js app and the FastAPI service each own their manifest, lockfile and lint config.
+**Why.** The flat layout put a JS app, a Python service and shared infrastructure at one level. Root configs were ambiguous about which service they governed, and "where does this file go" had no principled answer. Organising by what ships makes both questions trivial.
+**Cost.** Every path-bearing config had to move with it — CI working directories, `render.yaml` `rootDir`, Dockerfile `COPY` paths. Those are updated; a stale root `node_modules` was also removed so dependencies resolve from `frontend/` rather than by walking up the tree.
+**Note.** `database/` is deliberately empty, reserving the location for [§11](#11-database-design). An empty directory that documents an intention is acceptable; one that documents nothing is not — delete it if persistence is abandoned.
 
 ---
 
