@@ -10,7 +10,7 @@ interface RepoChipsProps {
 /** One-tap example repositories shown under the command bar. */
 export function RepoChips({ onPick }: RepoChipsProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2.5">
+    <div className="flex flex-wrap items-center justify-center gap-2.5">
       <span className="text-[13px] text-muted-foreground">Try an example</span>
       {EXAMPLE_REPOS.map((repo) => (
         <button

@@ -91,7 +91,7 @@ export function CommandBar() {
   }
 
   return (
-    <div id="map" className="flex w-full max-w-[600px] flex-col gap-4 scroll-mt-24">
+    <div id="map" className="mx-auto flex w-full max-w-[600px] flex-col gap-4 scroll-mt-24">
       <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-2 pl-4 transition-colors focus-within:border-primary/60">
         <span aria-hidden="true" className="font-mono text-sm text-primary">
           &gt;
