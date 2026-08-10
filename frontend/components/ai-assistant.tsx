@@ -77,6 +77,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
   ])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -140,18 +141,71 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
           fetchOnlyCurrentFile:
             input.includes("Explain file contents of") || input.includes("Explain this file"),
           history,
+          stream: true,
         }),
       })
 
-      const data = await response.json()
-      if (!data.success) throw new Error(data.error || "Failed to generate response")
+      // A refusal (quota, budget, validation) still arrives as the JSON envelope,
+      // so anything that is not a stream is handled the old way.
+      const isStream = response.headers.get("content-type")?.includes("x-ndjson")
 
-      // Update rate limit in UI
-      if (data.rateLimit) {
-        window.dispatchEvent(new CustomEvent('aiRateLimitUpdate', { detail: data.rateLimit }))
+      if (!isStream) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to generate response")
       }
 
-      setMessages((prev) => [...prev, { role: "assistant", content: data.response || "No response received.", timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }])
+      // Placeholder message that fills in as chunks arrive.
+      const startedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      setMessages((prev) => [...prev, { role: "assistant", content: "", timestamp: startedAt }])
+      setIsStreaming(true)
+
+      const reader = response.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ""
+      let answer = ""
+      let streamError: string | null = null
+
+      const applyChunk = (text: string) => {
+        answer += text
+        setMessages((prev) => {
+          const next = [...prev]
+          next[next.length - 1] = { role: "assistant", content: answer, timestamp: startedAt }
+          return next
+        })
+      }
+
+      // NDJSON: one JSON event per line, so split on newlines and keep the remainder.
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() ?? ""
+
+        for (const line of lines) {
+          if (!line.trim()) continue
+          let event: any
+          try {
+            event = JSON.parse(line)
+          } catch {
+            continue // partial or malformed line; the next read completes it
+          }
+
+          if (event.type === "chunk") applyChunk(event.text)
+          else if (event.type === "error") streamError = event.error
+          else if (event.type === "done" && event.rateLimit) {
+            window.dispatchEvent(
+              new CustomEvent("aiRateLimitUpdate", { detail: event.rateLimit })
+            )
+          }
+        }
+      }
+
+      setIsStreaming(false)
+
+      if (streamError) throw new Error(streamError)
+      if (!answer.trim()) throw new Error("No response received.")
     } catch (error) {
       console.error("Error generating response:", error)
       setMessages((prev) => [
@@ -164,6 +218,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
       ])
     } finally {
       setIsLoading(false)
+      setIsStreaming(false)
     }
   }
 
@@ -253,7 +308,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
             </div>
           ))}
 
-          {isLoading && (
+          {isLoading && !isStreaming && (
             <div className="flex gap-4">
               <Avatar className="h-8 w-8 border border-border shadow-sm">
                 <div className="h-full w-full bg-muted flex items-center justify-center overflow-hidden">

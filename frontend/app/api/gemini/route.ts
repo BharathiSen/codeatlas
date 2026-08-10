@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchFileContent } from "@/lib/github";
-import { generateWithFallback } from "@/lib/gemini";
+import { generateWithFallback, streamWithFallback } from "@/lib/gemini";
 import { logger } from '@/lib/logger';
 import {
   buildPrompt,
@@ -53,7 +53,18 @@ export async function POST(req: Request) {
       );
     }
 
-    const { username, repo, query, filePath, fetchOnlyCurrentFile = false, history = [] } = await req.json();
+    const { username, repo, query, filePath, fetchOnlyCurrentFile = false, history = [], stream = false } = await req.json();
+
+    // Validate before spending quota. Without this an empty repo/query still
+    // reached the model and consumed a request to answer nothing.
+    if (!username || !repo || typeof query !== 'string' || query.trim() === '') {
+      return apiError(
+        ErrorCode.MISSING_PARAMETERS,
+        'Fields "username", "repo" and a non-empty "query" are required.',
+        400
+      );
+    }
+
     const repoKey = `${username}/${repo}`;
 
     // Set a longer timeout for Vercel
@@ -208,6 +219,57 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
         413,
         { estimatedTokens: promptTokens, maxTokens: MAX_PROMPT_TOKENS }
       );
+    }
+
+    /*
+     * Streaming is opt-in via `stream: true`. Without it the JSON envelope below
+     * is byte-for-byte what it always was, so existing callers are unaffected.
+     *
+     * The stream is newline-delimited JSON rather than raw text: the client still
+     * needs the rateLimit and usage metadata that the envelope carries, and a
+     * mid-stream failure has to be distinguishable from a truncated answer.
+     */
+    if (stream) {
+      const encoder = new TextEncoder();
+      const body = new ReadableStream({
+        async start(controller) {
+          const send = (event: Record<string, unknown>) =>
+            controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+
+          try {
+            for await (const chunk of streamWithFallback(prompt)) {
+              send({ type: 'chunk', text: chunk });
+            }
+
+            const rateLimit = await RateLimiter.increment(clientIP);
+            send({
+              type: 'done',
+              rateLimit,
+              usage: {
+                estimatedPromptTokens: promptTokens,
+                truncated: promptTruncated,
+                historyTurns,
+              },
+            });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            logger.error(`Streaming failed: ${message}`, { prefix: 'Gemini' });
+            send({ type: 'error', code: ErrorCode.GENERATION_FAILED, error: message });
+          } finally {
+            clearTimeout(timeoutId);
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(body, {
+        headers: {
+          'Content-Type': 'application/x-ndjson; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          // Stops proxies buffering the response into one delivery.
+          'X-Accel-Buffering': 'no',
+        },
+      });
     }
 
     // Generate response using Gemini (with fallback to secondary key)
