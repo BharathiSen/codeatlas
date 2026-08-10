@@ -13,6 +13,7 @@ import {
   buildInsightInstruction,
   insightCacheKey,
   isInsightKind,
+  type CachedInsight,
   type InsightKind,
 } from '@/lib/insights';
 
@@ -78,8 +79,17 @@ export async function POST(req: NextRequest) {
     if (!force_refresh) {
       const cached = await RedisCacheManager.getRaw(cacheKey);
       if (cached) {
-        logger.info(`Insight cache hit: ${insightKind} for ${repoKey}`, { prefix: 'Insights' });
-        return apiSuccess({ kind: insightKind, markdown: cached }, { cached: true });
+        try {
+          const parsed: CachedInsight = JSON.parse(cached);
+          logger.info(`Insight cache hit: ${insightKind} for ${repoKey}`, { prefix: 'Insights' });
+          return apiSuccess(
+            { kind: insightKind, markdown: parsed.markdown },
+            { cached: true, usage: { truncated: parsed.truncated } }
+          );
+        } catch {
+          // Malformed entry — fall through and regenerate rather than serve junk.
+          logger.warn(`Discarding unparsable cache entry ${cacheKey}`, { prefix: 'Insights' });
+        }
       }
     }
 
@@ -137,7 +147,8 @@ ${instruction}`;
       maxOutputTokens: INSIGHT_MAX_OUTPUT_TOKENS,
     });
 
-    await RedisCacheManager.saveRaw(cacheKey, markdown);
+    const record: CachedInsight = { markdown, truncated: budget.truncated };
+    await RedisCacheManager.saveRaw(cacheKey, JSON.stringify(record));
     const rateLimit = await RateLimiter.increment(clientIP);
 
     return apiSuccess(

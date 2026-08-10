@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { Loader2, RefreshCw, Sparkles } from "lucide-react"
+import { AlertTriangle, Loader2, RefreshCw, Sparkles } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { CodeBlock } from "@/components/code-block"
 import { cn } from "@/lib/utils"
@@ -19,6 +19,8 @@ interface InsightState {
   error?: string
   loading: boolean
   cached?: boolean
+  /** True when the repository did not fit the token budget and was cut. */
+  truncated?: boolean
 }
 
 /**
@@ -53,7 +55,12 @@ export default function InsightsPanel({ username, repo }: InsightsPanelProps) {
 
         setResults((prev) => ({
           ...prev,
-          [kind]: { loading: false, markdown: payload.data.markdown, cached: payload.cached },
+          [kind]: {
+            loading: false,
+            markdown: payload.data.markdown,
+            cached: payload.cached,
+            truncated: payload.usage?.truncated ?? false,
+          },
         }))
 
         if (payload.rateLimit) {
@@ -155,6 +162,24 @@ export default function InsightsPanel({ username, repo }: InsightsPanelProps) {
 
           {!current.loading && current.markdown && (
             <>
+              {current.truncated && (
+                <div
+                  role="note"
+                  className="mb-4 flex gap-3 rounded-lg border border-yellow-500/40 bg-yellow-500/[0.07] p-3.5"
+                >
+                  <AlertTriangle
+                    className="mt-0.5 h-4 w-4 flex-none text-yellow-500"
+                    aria-hidden="true"
+                  />
+                  <p className="m-0 text-[13px] leading-relaxed text-muted-foreground">
+                    <span className="font-medium text-foreground">Partial analysis.</span>{" "}
+                    This repository exceeded the context budget, so only part of it was read.
+                    Sections may omit files entirely — treat anything absent here as unverified
+                    rather than missing from the codebase.
+                  </p>
+                </div>
+              )}
+
               <div className="mb-4 flex items-center justify-between gap-3">
                 <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">
                   {current.cached ? "cached result" : "freshly generated"}

@@ -216,9 +216,22 @@ export function isInsightKind(value: unknown): value is InsightKind {
   return typeof value === "string" && value in INSIGHTS
 }
 
-/** Cache key for a rendered insight. Versioned so prompt edits invalidate. */
+/** What gets cached: the document plus whether it saw the whole repository. */
+export interface CachedInsight {
+  markdown: string
+  truncated: boolean
+}
+
+/**
+ * Cache key for a rendered insight.
+ *
+ * Versioned so prompt edits invalidate old documents. v2 stores a JSON
+ * `CachedInsight` rather than a bare markdown string, so the truncation caveat
+ * survives a cache hit — a stale "complete" label on a partial analysis is
+ * exactly the kind of quiet inaccuracy this product exists to avoid.
+ */
 export function insightCacheKey(username: string, repo: string, kind: InsightKind): string {
-  return `insight:v1:${kind}:${username}:${repo}`
+  return `insight:v2:${kind}:${username}:${repo}`
 }
 
 /** Assemble the instruction block appended after the repository context. */
