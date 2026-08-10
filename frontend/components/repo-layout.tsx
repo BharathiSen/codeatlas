@@ -6,8 +6,11 @@ import FileExplorer from "@/components/file-explorer"
 import AiAssistant from "@/components/ai-assistant"
 import FileViewer from "@/components/file-viewer"
 import RepoAnalyzer from "@/components/repo-analyzer"
+import InsightsPanel from "@/components/insights-panel"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+
+type CentreMode = "files" | "insights"
 
 interface RepoLayoutProps {
     repoData: any
@@ -17,6 +20,7 @@ interface RepoLayoutProps {
 
 export default function RepoLayout({ repoData, username, repo }: RepoLayoutProps) {
     const [isLeftCollapsed, setIsLeftCollapsed] = useState(false)
+    const [centreMode, setCentreMode] = useState<CentreMode>("files")
 
     return (
         <div className="h-screen bg-background text-foreground font-sans overflow-hidden">
@@ -47,20 +51,46 @@ export default function RepoLayout({ repoData, username, repo }: RepoLayoutProps
 
                 <ResizableHandle withHandle />
 
-                {/* Middle - File Viewer */}
+                {/* Middle - File Viewer / Repository Insights */}
                 <ResizablePanel defaultSize={50} minSize={30}>
-                    <div className="flex flex-col h-full min-w-0 shadow-[4px_0_24px_-2px_rgba(0,0,0,0.1)] z-10 relative">
+                    <div className="flex flex-col h-full min-w-0 shadow-[4px_0_24px_-2px_rgba(0,0,0,0.1)] z-10 relative border-r border-border">
                         <RepoAnalyzer username={username} repo={repo} />
-                        <div className="flex-1 overflow-hidden border-r border-border">
-                            <Suspense
-                                fallback={
-                                    <div className="p-4">
-                                        <Skeleton className="h-[500px] bg-muted" />
-                                    </div>
-                                }
-                            >
-                                <FileViewer repoData={repoData} />
-                            </Suspense>
+
+                        {/* Centre-pane mode switch */}
+                        <div role="tablist" aria-label="Centre pane" className="flex flex-none gap-1 border-b border-border px-3 py-2">
+                            {(["files", "insights"] as const).map((mode) => (
+                                <button
+                                    key={mode}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={centreMode === mode}
+                                    onClick={() => setCentreMode(mode)}
+                                    className={cn(
+                                        "rounded-md px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors",
+                                        centreMode === mode
+                                            ? "bg-primary/[0.12] text-primary"
+                                            : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    {mode === "files" ? "Files" : "Insights"}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex-1 overflow-hidden min-h-0">
+                            {centreMode === "files" ? (
+                                <Suspense
+                                    fallback={
+                                        <div className="p-4">
+                                            <Skeleton className="h-[500px] bg-muted" />
+                                        </div>
+                                    }
+                                >
+                                    <FileViewer repoData={repoData} />
+                                </Suspense>
+                            ) : (
+                                <InsightsPanel username={username} repo={repo} />
+                            )}
                         </div>
                     </div>
                 </ResizablePanel>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { fetchFileContent } from "@/lib/github";
+import { generateWithFallback } from "@/lib/gemini";
 import { logger } from '@/lib/logger';
 import {
   buildPrompt,
@@ -13,65 +13,6 @@ import {
 import { RedisCacheManager } from '@/lib/redis-cache-manager';
 import { getClientIP, RateLimiter } from '@/lib/rate-limiter';
 import { apiError, ErrorCode } from '@/lib/api-response';
-
-// Primary and secondary Gemini API clients
-const primaryGenAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-const secondaryGenAI = process.env.GEMINI_API_KEY_SECONDARY
-  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY_SECONDARY)
-  : null;
-
-/*
- * Rolling alias by default rather than a pinned version.
- *
- * A pinned model (`gemini-2.5-flash-lite`) was retired mid-flight and returned
- * 404 "no longer available to new users", which took the assistant down
- * completely. The `-latest` alias tracks the current generation of the same
- * tier, so a retirement cannot break the product. Pin it via GEMINI_MODEL when
- * reproducibility matters more than availability.
- */
-const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
-
-// Helper function to generate content with fallback
-async function generateWithFallback(prompt: string): Promise<string> {
-  const generationConfig = {
-    temperature: 0.8,
-    maxOutputTokens: 2048,
-  };
-
-  // Try primary key first
-  try {
-    const primaryModel = primaryGenAI.getGenerativeModel({ model: MODEL_NAME });
-    const result = await primaryModel.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig
-    });
-    logger.info('Generated response using primary API key', { prefix: 'Gemini' });
-    return result.response.text();
-  } catch (primaryError) {
-    const primaryErrorMsg = primaryError instanceof Error ? primaryError.message : 'Unknown error';
-    logger.warn(`Primary API key failed: ${primaryErrorMsg}`, { prefix: 'Gemini' });
-
-    // Try secondary key if available
-    if (secondaryGenAI) {
-      try {
-        const secondaryModel = secondaryGenAI.getGenerativeModel({ model: MODEL_NAME });
-        const result = await secondaryModel.generateContent({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig
-        });
-        logger.info('Generated response using secondary API key', { prefix: 'Gemini' });
-        return result.response.text();
-      } catch (secondaryError) {
-        const secondaryErrorMsg = secondaryError instanceof Error ? secondaryError.message : 'Unknown error';
-        logger.error(`Secondary API key also failed: ${secondaryErrorMsg}`, { prefix: 'Gemini' });
-        throw new Error(`Both API keys failed. Primary: ${primaryErrorMsg}, Secondary: ${secondaryErrorMsg}`);
-      }
-    } else {
-      // No secondary key configured, throw original error
-      throw primaryError;
-    }
-  }
-}
 
 // Define interfaces for data structures
 interface ContextStats {

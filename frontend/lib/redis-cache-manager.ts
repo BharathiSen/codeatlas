@@ -68,6 +68,33 @@ export class RedisCacheManager {
     }
   }
 
+  /**
+   * Read an arbitrary cached string.
+   *
+   * Used for rendered insight documents, which are markdown rather than the
+   * `{tree, content}` shape the repository cache stores.
+   */
+  static async getRaw(key: string): Promise<string | null> {
+    try {
+      const client = await this.getClient();
+      return await client.get(key);
+    } catch (error) {
+      logger.error(`Cache retrieval error for ${key}: ${error}`, { prefix: 'Cache' });
+      return null;
+    }
+  }
+
+  /** Write an arbitrary string under the shared repository TTL. */
+  static async saveRaw(key: string, value: string): Promise<void> {
+    try {
+      const client = await this.getClient();
+      await client.setex(key, CACHE_DURATION, value);
+      logger.info(`Cached ${key}`, { prefix: 'Cache' });
+    } catch (error) {
+      logger.error(`Cache save error for ${key}: ${error}`, { prefix: 'Cache' });
+    }
+  }
+
   static async clearCache(username: string, repo: string): Promise<void> {
     try {
       const client = await this.getClient();
