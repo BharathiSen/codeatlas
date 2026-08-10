@@ -243,7 +243,7 @@ export default function FileExplorer({ repoData }: FileExplorerProps) {
             onKeyDown={(e) => e.key === "Escape" && setQuery("")}
             placeholder="Search files…"
             aria-label="Search files by name"
-            className="h-8 border-border bg-muted pl-8 pr-8 font-mono text-xs"
+            className="h-8 border-border-strong bg-muted pl-8 pr-8 font-mono text-xs"
           />
           {query && (
             <button

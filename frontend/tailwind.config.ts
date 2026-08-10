@@ -58,6 +58,7 @@ const config: Config = {
         },
         // Extended palette from the design system
         faint: "hsl(var(--faint))",
+        "border-strong": "hsl(var(--border-strong))",
         "accent-2": "hsl(var(--accent-2))",
         "accent-3": "hsl(var(--accent-3))",
         "surface-raised": "hsl(var(--surface-raised))",

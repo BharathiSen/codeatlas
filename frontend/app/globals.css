@@ -21,10 +21,13 @@
     --popover: 240 10% 8%;
     --popover-foreground: 240 8% 95%;
 
-    /* Violet accent */
-    --primary: 258 90% 66%;            /* #8b5cf6 */
+    /* Violet accent.
+       68% rather than the design export's 66% (#8b5cf6): at 66% the accent
+       measures 4.32:1 on --card, just under the WCAG AA 4.5:1 floor for normal
+       text. The two-point lift is visually imperceptible and buys 5.0:1. */
+    --primary: 258 90% 68%;
     --primary-foreground: 240 11% 4%;  /* near-black text on violet */
-    --ring: 258 90% 66%;
+    --ring: 258 90% 68%;
 
     /* Secondary / muted surfaces */
     --secondary: 240 9% 11%;           /* #1a1a1f */
@@ -34,16 +37,24 @@
     --accent: 240 9% 11%;
     --accent-foreground: 240 8% 95%;
 
-    --destructive: 0 72% 51%;
+    /* 56% rather than 51%: error text measured 4.15:1 on --background. */
+    --destructive: 0 72% 56%;
     --destructive-foreground: 240 8% 95%;
 
     --border: 240 4% 13%;              /* rgba(255,255,255,.1) on --bg */
     --input: 240 4% 13%;
 
+    /* WCAG 1.4.11 needs 3:1 for a boundary that is the only thing identifying a
+       control. --border is a decorative hairline at 1.22:1, which is fine for
+       dividers and not for the edge of an input. Interactive surfaces use this. */
+    --border-strong: 240 5% 40%;
+
     --radius: 0.5rem;
 
     /* Extended palette used by charts, gradients and the pipeline rail */
-    --faint: 240 2% 38%;               /* rgba(241,241,243,.38) on --bg */
+    /* 48% rather than the export's 38%: metadata is 11px, and 38% measured
+       3.13:1 — below AA for text of any size. */
+    --faint: 240 2% 48%;
     --accent-2: 239 84% 67%;           /* #6366f1 */
     --accent-3: 217 91% 60%;           /* #3b82f6 */
     --surface-raised: 240 9% 11%;      /* #1a1a1f */
@@ -61,16 +72,16 @@
     --card-foreground: 240 8% 95%;
     --popover: 240 10% 8%;
     --popover-foreground: 240 8% 95%;
-    --primary: 258 90% 66%;
+    --primary: 258 90% 68%;
     --primary-foreground: 240 11% 4%;
-    --ring: 258 90% 66%;
+    --ring: 258 90% 68%;
     --secondary: 240 9% 11%;
     --secondary-foreground: 240 8% 95%;
     --muted: 240 9% 11%;
     --muted-foreground: 240 3% 60%;
     --accent: 240 9% 11%;
     --accent-foreground: 240 8% 95%;
-    --destructive: 0 72% 51%;
+    --destructive: 0 72% 56%;
     --destructive-foreground: 240 8% 95%;
     --border: 240 4% 13%;
     --input: 240 4% 13%;
