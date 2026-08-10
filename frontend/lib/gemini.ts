@@ -25,6 +25,59 @@ export interface GenerationOptions {
 }
 
 /**
+ * Stream content, falling back to the secondary key when the primary fails.
+ *
+ * Failover only covers *starting* the stream. Once the first chunk has been
+ * emitted the client has already rendered text, so silently restarting on the
+ * secondary key would duplicate or contradict what the user is reading — a
+ * mid-stream failure is surfaced instead.
+ */
+export async function* streamWithFallback(
+  prompt: string,
+  options: GenerationOptions = {}
+): AsyncGenerator<string> {
+  const generationConfig = {
+    temperature: options.temperature ?? 0.8,
+    maxOutputTokens: options.maxOutputTokens ?? 2048,
+  };
+  const request = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig,
+  };
+
+  let stream: AsyncGenerator<{ text: () => string }>;
+
+  try {
+    const model = primaryGenAI.getGenerativeModel({ model: MODEL_NAME });
+    stream = (await model.generateContentStream(request)).stream;
+    logger.info('Streaming response using primary API key', { prefix: 'Gemini' });
+  } catch (primaryError) {
+    const primaryMsg = primaryError instanceof Error ? primaryError.message : 'Unknown error';
+    logger.warn(`Primary API key failed to open stream: ${primaryMsg}`, { prefix: 'Gemini' });
+
+    if (!secondaryGenAI) throw primaryError;
+
+    try {
+      const model = secondaryGenAI.getGenerativeModel({ model: MODEL_NAME });
+      stream = (await model.generateContentStream(request)).stream;
+      logger.info('Streaming response using secondary API key', { prefix: 'Gemini' });
+    } catch (secondaryError) {
+      const secondaryMsg =
+        secondaryError instanceof Error ? secondaryError.message : 'Unknown error';
+      logger.error(`Secondary API key also failed: ${secondaryMsg}`, { prefix: 'Gemini' });
+      throw new Error(
+        `Both API keys failed. Primary: ${primaryMsg}, Secondary: ${secondaryMsg}`
+      );
+    }
+  }
+
+  for await (const chunk of stream) {
+    const text = chunk.text();
+    if (text) yield text;
+  }
+}
+
+/**
  * Generate content, falling back to the secondary key when the primary fails.
  *
  * Shared by the assistant and the insights endpoint so both inherit the same

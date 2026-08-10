@@ -247,7 +247,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
                     : "bg-muted border border-border text-foreground rounded-tl-sm"
                     }`}
                 >
-                  <Markdown>{message.content}</Markdown>
+                  <Markdown fileLinks={{ username, repo }}>{message.content}</Markdown>
                 </div>
               </div>
             </div>

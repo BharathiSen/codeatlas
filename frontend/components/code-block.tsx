@@ -2,8 +2,52 @@
 
 import { Check, Copy, Terminal } from "lucide-react"
 import { useState } from "react"
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
+import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter"
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
+
+import bash from "react-syntax-highlighter/dist/esm/languages/prism/bash"
+import css from "react-syntax-highlighter/dist/esm/languages/prism/css"
+import go from "react-syntax-highlighter/dist/esm/languages/prism/go"
+import java from "react-syntax-highlighter/dist/esm/languages/prism/java"
+import javascript from "react-syntax-highlighter/dist/esm/languages/prism/javascript"
+import json from "react-syntax-highlighter/dist/esm/languages/prism/json"
+import jsx from "react-syntax-highlighter/dist/esm/languages/prism/jsx"
+import markdown from "react-syntax-highlighter/dist/esm/languages/prism/markdown"
+import python from "react-syntax-highlighter/dist/esm/languages/prism/python"
+import rust from "react-syntax-highlighter/dist/esm/languages/prism/rust"
+import sql from "react-syntax-highlighter/dist/esm/languages/prism/sql"
+import tsx from "react-syntax-highlighter/dist/esm/languages/prism/tsx"
+import typescript from "react-syntax-highlighter/dist/esm/languages/prism/typescript"
+import yaml from "react-syntax-highlighter/dist/esm/languages/prism/yaml"
+
+/*
+ * PrismLight with an explicit language set.
+ *
+ * The default `Prism` build registers ~200 grammars and sits in the workspace's
+ * critical path via the assistant. Registering only what this product actually
+ * shows keeps that cost proportional. An unregistered language still renders —
+ * as plain text rather than highlighted — so the failure mode is cosmetic.
+ */
+const LANGUAGES: Record<string, unknown> = {
+  bash, sh: bash, shell: bash,
+  css,
+  go,
+  java,
+  javascript, js: javascript,
+  json,
+  jsx,
+  markdown, md: markdown,
+  python, py: python,
+  rust, rs: rust,
+  sql,
+  tsx,
+  typescript, ts: typescript,
+  yaml, yml: yaml,
+}
+
+for (const [name, grammar] of Object.entries(LANGUAGES)) {
+  SyntaxHighlighter.registerLanguage(name, grammar as never)
+}
 
 interface CodeBlockProps {
     language: string

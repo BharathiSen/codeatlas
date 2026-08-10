@@ -6,7 +6,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import ReactMarkdown from "react-markdown"
 import dynamic from 'next/dynamic'
-import NotebookViewer from './notebook-viewer'
 import * as React from "react"
 import rehypeRaw from "rehype-raw"
 import remarkGfm from "remark-gfm"
@@ -14,6 +13,17 @@ import { Button } from "@/components/ui/button"
 import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react"
 
 // Dynamically import PDF components with no SSR
+// Notebook rendering is only needed for .ipynb files, which most repositories
+// do not contain. Loading it on demand keeps it out of the workspace bundle.
+const NotebookViewer = dynamic(() => import('./notebook-viewer'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center">
+      <Skeleton className="h-32 w-32 bg-muted" />
+    </div>
+  ),
+})
+
 const PDFViewer = dynamic(
   () => import('./pdf-viewer').then((mod) => mod.default),
   {

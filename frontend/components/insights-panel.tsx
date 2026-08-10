@@ -192,7 +192,7 @@ export default function InsightsPanel({ username, repo }: InsightsPanelProps) {
                 </button>
               </div>
 
-              <Markdown>{current.markdown}</Markdown>
+              <Markdown fileLinks={{ username, repo }}>{current.markdown}</Markdown>
             </>
           )}
         </div>
