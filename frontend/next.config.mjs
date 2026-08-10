@@ -16,13 +16,27 @@ import { fileURLToPath } from 'node:url'
  */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-// dotenv never overwrites an already-set variable, so the FIRST file to define
-// a key wins. Highest precedence therefore comes first: .env.local overrides
-// .env, and both yield to anything already in the real environment.
+/*
+ * Variables the runtime owns. Next sets NODE_ENV itself and only wires up its
+ * CSS/PostCSS loader chain for the standard values, so letting a .env file
+ * inject a non-standard one silently breaks Tailwind. PORT is the server's to
+ * decide too. Both are ignored no matter what the file says.
+ */
+const RESERVED = new Set(['NODE_ENV', 'PORT'])
+
+// The first file to define a key wins, so highest precedence comes first:
+// .env.local overrides .env, and both yield to the real environment.
 for (const file of ['.env.local', '.env']) {
   const path = resolve(repoRoot, file)
-  if (existsSync(path)) {
-    loadEnv({ path })
+  if (!existsSync(path)) continue
+
+  // `processEnv: {}` parses without mutating process.env, so we control exactly
+  // which keys are applied.
+  const parsed = loadEnv({ path, processEnv: {}, quiet: true }).parsed ?? {}
+
+  for (const [key, value] of Object.entries(parsed)) {
+    if (RESERVED.has(key)) continue
+    if (process.env[key] === undefined) process.env[key] = value
   }
 }
 
