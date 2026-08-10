@@ -1,11 +1,9 @@
 "use client"
 
 import { useCallback, useState } from "react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
 import { AlertTriangle, Loader2, RefreshCw, Sparkles } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { CodeBlock } from "@/components/code-block"
+import { Markdown } from "@/components/markdown"
 import { cn } from "@/lib/utils"
 import { INSIGHT_ORDER, INSIGHTS, type InsightKind } from "@/lib/insights"
 
@@ -194,48 +192,7 @@ export default function InsightsPanel({ username, repo }: InsightsPanelProps) {
                 </button>
               </div>
 
-              <div className="prose prose-invert max-w-none">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    code({ className, children, ...props }: any) {
-                      const match = /language-(\w+)/.exec(className || "")
-                      return !props.inline && match ? (
-                        <CodeBlock
-                          language={match[1]}
-                          value={String(children).replace(/\n$/, "")}
-                        />
-                      ) : (
-                        <code
-                          className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-primary"
-                          {...props}
-                        >
-                          {children}
-                        </code>
-                      )
-                    },
-                    table({ children }) {
-                      return (
-                        <div className="my-4 overflow-x-auto rounded-lg border border-border">
-                          <table className="w-full text-left text-sm">{children}</table>
-                        </div>
-                      )
-                    },
-                    th({ children }) {
-                      return (
-                        <th className="border-b border-border bg-muted px-4 py-2 font-medium">
-                          {children}
-                        </th>
-                      )
-                    },
-                    td({ children }) {
-                      return <td className="border-b border-border px-4 py-2">{children}</td>
-                    },
-                  }}
-                >
-                  {current.markdown}
-                </ReactMarkdown>
-              </div>
+              <Markdown>{current.markdown}</Markdown>
             </>
           )}
         </div>

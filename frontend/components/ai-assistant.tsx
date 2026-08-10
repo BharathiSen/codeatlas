@@ -14,11 +14,9 @@ import {
   Package,
 } from "lucide-react"
 import { useSearchParams } from "next/navigation"
-import ReactMarkdown from "react-markdown"
-import { CodeBlock } from "@/components/code-block"
+import { Markdown } from "@/components/markdown"
 import Image from "next/image"
 
-import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { AIRateLimit } from "@/components/ui/ai-rate-limit"
 import { useGithubStars } from "@/hooks/useGithubStars"
 import { Avatar } from "@/components/ui/avatar"
@@ -198,7 +196,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 hover:text-primary transition-colors"
                   >
-                    <span className="text-yellow-400">★</span>
+                    <span className="text-primary">★</span>
                     {stars}
                   </a>
                 </>
@@ -208,7 +206,6 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
         </div>
         <div className="flex items-center gap-4">
           <AIRateLimit />
-          <ThemeToggle />
         </div>
       </div>
 
@@ -250,63 +247,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
                     : "bg-muted border border-border text-foreground rounded-tl-sm"
                     }`}
                 >
-                  <div className="prose dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent prose-pre:border-none break-words">
-                    <ReactMarkdown
-                      components={{
-                        code({ node: _node, className, children, ...props }: any) {
-                          const { inline } = props
-                          const match = /language-(\w+)/.exec(className || "")
-                          return !inline && match ? (
-                            <CodeBlock
-                              language={match[1]}
-                              value={String(children).replace(/\n$/, "")}
-                            />
-                          ) : (
-                            <code className="bg-muted px-1.5 py-0.5 rounded text-primary font-mono text-xs border border-border" {...props}>
-                              {children}
-                            </code>
-                          )
-                        },
-                        p({ children }) {
-                          return <p className="mb-2 last:mb-0 break-words">{children}</p>
-                        },
-                        ul({ children }) {
-                          return <ul className="my-2 pl-4 list-disc space-y-1">{children}</ul>
-                        },
-                        ol({ children }) {
-                          return <ol className="my-2 pl-4 list-decimal space-y-1">{children}</ol>
-                        },
-                        li({ children }) {
-                          return <li className="pl-1">{children}</li>
-                        },
-                        a({ href, children }) {
-                          return (
-                            <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
-                              {children}
-                            </a>
-                          )
-                        },
-                        table({ children }) {
-                          return (
-                            <div className="overflow-x-auto my-4 rounded-lg border border-border">
-                              <table className="w-full text-left text-sm">{children}</table>
-                            </div>
-                          )
-                        },
-                        th({ children }) {
-                          return <th className="bg-muted px-4 py-2 font-medium border-b border-border">{children}</th>
-                        },
-                        td({ children }) {
-                          return <td className="px-4 py-2 border-b border-border last:border-0">{children}</td>
-                        },
-                        blockquote({ children }) {
-                          return <blockquote className="border-l-2 border-primary pl-4 italic text-muted-foreground my-2">{children}</blockquote>
-                        }
-                      }}
-                    >
-                      {message.content}
-                    </ReactMarkdown>
-                  </div>
+                  <Markdown>{message.content}</Markdown>
                 </div>
               </div>
             </div>
