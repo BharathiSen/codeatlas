@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getClientIP, RateLimiter } from "@/lib/rate-limiter";
 import { logger } from "@/lib/logger";
+import { apiError, ErrorCode } from "@/lib/api-response";
 
 export async function GET(req: Request) {
   try {
@@ -13,9 +14,10 @@ export async function GET(req: Request) {
       `Error checking rate limit: ${error instanceof Error ? error.message : 'Unknown error'}`,
       { prefix: 'RateLimit' }
     );
-    return NextResponse.json(
-      { success: false, error: 'Failed to check rate limit' },
-      { status: 500 }
+    return apiError(
+      ErrorCode.QUOTA_UNAVAILABLE,
+      'Failed to check rate limit.',
+      503
     );
   }
 }

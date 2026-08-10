@@ -20,7 +20,16 @@ const secondaryGenAI = process.env.GEMINI_API_KEY_SECONDARY
   ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY_SECONDARY)
   : null;
 
-const MODEL_NAME = 'gemini-2.5-flash-lite';
+/*
+ * Rolling alias by default rather than a pinned version.
+ *
+ * A pinned model (`gemini-2.5-flash-lite`) was retired mid-flight and returned
+ * 404 "no longer available to new users", which took the assistant down
+ * completely. The `-latest` alias tracks the current generation of the same
+ * tier, so a retirement cannot break the product. Pin it via GEMINI_MODEL when
+ * reproducibility matters more than availability.
+ */
+const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
 
 // Helper function to generate content with fallback
 async function generateWithFallback(prompt: string): Promise<string> {

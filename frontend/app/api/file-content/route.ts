@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { Octokit } from "@octokit/rest";
+import { ErrorCode } from "@/lib/api-response";
 
 // Enhanced cache for storing file contents with LRU-like behavior
 const fileCache = new Map();
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
   const repo = searchParams.get("repo");
 
   if (!path || !username || !repo) {
-    return new Response(JSON.stringify({ success: false, error: "Missing required parameters" }), {
+    return new Response(JSON.stringify({ success: false, code: ErrorCode.MISSING_PARAMETERS, error: "Missing required parameters" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
         content = Buffer.from(response.data.content, "base64").toString();
       }
     } else {
-      return new Response(JSON.stringify({ success: false, error: "Invalid response format or path points to a directory" }), {
+      return new Response(JSON.stringify({ success: false, code: ErrorCode.INVALID_REQUEST, error: "Invalid response format or path points to a directory" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
@@ -161,20 +162,25 @@ export async function GET(request: NextRequest) {
     // Provide more specific error messages
     let errorMessage = "Failed to fetch file content";
     let statusCode = 500;
+    let errorCode: string = ErrorCode.INTERNAL_ERROR;
 
     if (error instanceof Error) {
       if (error.message.includes('timeout')) {
         errorMessage = "Request timed out while fetching file content";
+        statusCode = 504;
+        errorCode = ErrorCode.TIMEOUT;
       } else if (error.message.includes('rate limit')) {
         errorMessage = "GitHub API rate limit exceeded. Please try again later.";
         statusCode = 429;
+        errorCode = ErrorCode.UPSTREAM_RATE_LIMITED;
       } else if (error.message.includes('Not Found')) {
         errorMessage = `File '${path}' not found in repository ${username}/${repo}`;
         statusCode = 404;
+        errorCode = ErrorCode.FILE_NOT_FOUND;
       }
     }
 
-    return new Response(JSON.stringify({ success: false, error: errorMessage }), {
+    return new Response(JSON.stringify({ success: false, code: errorCode, error: errorMessage }), {
       status: statusCode,
       headers: { "Content-Type": "application/json" },
     });

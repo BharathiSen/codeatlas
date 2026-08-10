@@ -65,13 +65,11 @@ export function SiteNavbar() {
             </a>
           )}
 
-          <Link
-            href="/docs"
-            className="rounded-md border border-border px-3.5 py-1.5 text-[13px] text-foreground transition-colors hover:border-primary/45"
-          >
-            Sign in
-          </Link>
-
+          {/*
+           * No "Sign in" button: there is no auth system yet (§8, Phase 4).
+           * A control that silently routes somewhere unrelated is worse than no
+           * control — add it back when accounts actually exist.
+           */}
           <Link
             href="/#map"
             className="ca-btn-gradient rounded-md px-4 py-2 text-[13px] font-semibold"
