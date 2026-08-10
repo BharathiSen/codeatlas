@@ -40,6 +40,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Test
+        run: pnpm test
+
       # No secrets are required: every integration reads its configuration at
       # request time, so an unconfigured build is still a valid build.
       - name: Build

@@ -1,0 +1,65 @@
+import { NextResponse } from 'next/server';
+
+/**
+ * Machine-readable error codes.
+ *
+ * Every route returns one of these alongside the human-readable message, so
+ * clients can branch on `code` instead of pattern-matching prose. Codes are
+ * stable; messages are not.
+ */
+export const ErrorCode = {
+  // Request problems
+  INVALID_REQUEST: 'invalid_request',
+  MISSING_PARAMETERS: 'missing_parameters',
+
+  // Repository problems
+  REPO_NOT_FOUND: 'repo_not_found',
+  REPO_PRIVATE: 'repo_private',
+  REPO_TOO_LARGE: 'repo_too_large',
+  FILE_NOT_FOUND: 'file_not_found',
+
+  // Capacity and quota
+  RATE_LIMITED: 'rate_limited',
+  QUOTA_UNAVAILABLE: 'quota_unavailable',
+  CONTEXT_TOO_LARGE: 'context_too_large',
+  UPSTREAM_RATE_LIMITED: 'upstream_rate_limited',
+
+  // Infrastructure
+  NOT_CONFIGURED: 'not_configured',
+  UPSTREAM_ERROR: 'upstream_error',
+  TIMEOUT: 'timeout',
+  GENERATION_FAILED: 'generation_failed',
+  INTERNAL_ERROR: 'internal_error',
+} as const;
+
+export type ErrorCodeValue = (typeof ErrorCode)[keyof typeof ErrorCode];
+
+export interface ApiErrorBody {
+  success: false;
+  code: ErrorCodeValue;
+  error: string;
+  /** Optional structured context — never includes secrets. */
+  details?: Record<string, unknown>;
+}
+
+export interface ApiSuccessBody<T> {
+  success: true;
+  data: T;
+}
+
+/** Success envelope. Extra top-level fields (e.g. `cached`) may be merged in. */
+export function apiSuccess<T>(data: T, extra?: Record<string, unknown>) {
+  return NextResponse.json({ success: true, data, ...extra });
+}
+
+/** Error envelope with a stable code and an HTTP status. */
+export function apiError(
+  code: ErrorCodeValue,
+  message: string,
+  status: number,
+  details?: Record<string, unknown>
+) {
+  const body: ApiErrorBody = { success: false, code, error: message };
+  if (details) body.details = details;
+  return NextResponse.json(body, { status });
+}

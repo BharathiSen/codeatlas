@@ -259,6 +259,31 @@ export async function fetchRepoData(username: string, repo: string) {
   }
 }
 
+export interface RepoSizeInfo {
+  /** Repository size in kilobytes, as reported by the GitHub API. */
+  sizeKb: number;
+  defaultBranch: string;
+  isPrivate: boolean;
+}
+
+/**
+ * Read a repository's size before committing to ingestion.
+ *
+ * One cheap metadata call that lets the caller refuse an oversized repository
+ * up front instead of discovering the problem as a 120s timeout.
+ */
+export async function fetchRepoSize(owner: string, repo: string): Promise<RepoSizeInfo> {
+  await initializeGitHubClient();
+
+  const { data } = await octokit.repos.get({ owner, repo });
+
+  return {
+    sizeKb: data.size ?? 0,
+    defaultBranch: data.default_branch,
+    isPrivate: data.private,
+  };
+}
+
 export async function fetchDirectoryContents(owner: string, repo: string, path: string, fetchContent = false, depth = 0, maxDepth = 2): Promise<FileNode[]> {
   try {
     // Exported entry point: ensure the client exists before any octokit call.

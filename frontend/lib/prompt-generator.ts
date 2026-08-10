@@ -8,11 +8,149 @@ export interface GitIngestData {
   error?: string;
 }
 
+export interface ConversationMessage {
+  role: string;
+  content: string;
+}
+
+/**
+ * Total prompt budget, in estimated tokens.
+ *
+ * This is a *cost* ceiling, not a context-window ceiling — the model accepts far
+ * more than this. Lowering it lowers spend per question; raising it lets larger
+ * repositories through at proportionally higher cost.
+ */
+export const MAX_PROMPT_TOKENS = Number(process.env.MAX_PROMPT_TOKENS ?? 250_000);
+
+/** Conversation turns kept when building the prompt (user + assistant each count as one). */
+export const MAX_HISTORY_TURNS = Number(process.env.MAX_HISTORY_TURNS ?? 8);
+
+/** Per-message cap so one pasted stack trace cannot crowd out the codebase. */
+const MAX_HISTORY_CHARS_PER_MESSAGE = 1_500;
+
+/**
+ * Estimate token count from character length.
+ *
+ * Deliberately local and approximate (~4 chars/token for English and code)
+ * rather than calling the provider's `countTokens`, which would add a network
+ * round trip to every request purely to decide whether to make a request. The
+ * estimate runs high on dense code, which errs toward refusing early — the safe
+ * direction for a spend guard.
+ */
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+/**
+ * Trim conversation history to the most recent turns and clip long messages.
+ *
+ * Recency beats completeness: the last few exchanges carry the referents that
+ * make follow-up questions resolvable ("and the other one?"), while older turns
+ * mostly duplicate context already present in the codebase section.
+ */
+export function selectHistory(
+  history: ConversationMessage[],
+  maxTurns: number = MAX_HISTORY_TURNS
+): ConversationMessage[] {
+  if (!Array.isArray(history) || history.length === 0) return [];
+
+  return history
+    .filter((m) => m && typeof m.content === 'string' && m.content.trim() !== '')
+    .slice(-maxTurns)
+    .map((m) => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content:
+        m.content.length > MAX_HISTORY_CHARS_PER_MESSAGE
+          ? `${m.content.slice(0, MAX_HISTORY_CHARS_PER_MESSAGE)}… [truncated]`
+          : m.content,
+    }));
+}
+
+export interface BudgetResult {
+  content: string;
+  truncated: boolean;
+  estimatedTokens: number;
+}
+
+/**
+ * Fit the codebase content inside the token budget.
+ *
+ * Everything except `content` (instructions, tree, history, query) is fixed
+ * overhead, so the content block is what gets cut. Truncation is marked inline
+ * so the model knows it is not seeing the whole repository and can say so.
+ */
+export function applyTokenBudget(
+  content: string,
+  overheadTokens: number,
+  maxTokens: number = MAX_PROMPT_TOKENS
+): BudgetResult {
+  const contentTokens = estimateTokens(content);
+  const total = contentTokens + overheadTokens;
+
+  if (total <= maxTokens) {
+    return { content, truncated: false, estimatedTokens: total };
+  }
+
+  const allowanceTokens = Math.max(0, maxTokens - overheadTokens);
+  const allowanceChars = allowanceTokens * 4;
+  const marker =
+    '\n\n[Repository content truncated to fit the configured token budget. ' +
+    'Answers may be incomplete; say so when the relevant code may be missing.]';
+
+  return {
+    content: content.slice(0, allowanceChars) + marker,
+    truncated: true,
+    estimatedTokens: overheadTokens + estimateTokens(content.slice(0, allowanceChars) + marker),
+  };
+}
+
+/** Rough size of the fixed instruction scaffolding, in estimated tokens. */
+const INSTRUCTION_TOKEN_ALLOWANCE = 1_200;
+
+export interface BuiltPrompt {
+  prompt: string;
+  estimatedTokens: number;
+  truncated: boolean;
+  historyTurns: number;
+}
+
+/**
+ * Assemble a budgeted prompt.
+ *
+ * The single entry point used by the answering route: trims history, fits the
+ * codebase content inside the token budget, and reports what it cost — so the
+ * caller knows the price before dispatching, not after.
+ */
+export async function buildPrompt(
+  query: string,
+  history: ConversationMessage[],
+  tree: string,
+  content: string
+): Promise<BuiltPrompt> {
+  const selected = selectHistory(history);
+
+  const overheadTokens =
+    INSTRUCTION_TOKEN_ALLOWANCE +
+    estimateTokens(query) +
+    estimateTokens(tree) +
+    selected.reduce((sum, m) => sum + estimateTokens(m.content), 0);
+
+  const budget = applyTokenBudget(content, overheadTokens);
+  const prompt = await generatePrompt(query, selected, tree, budget.content);
+
+  return {
+    prompt,
+    estimatedTokens: budget.estimatedTokens,
+    truncated: budget.truncated,
+    historyTurns: selected.length,
+  };
+}
+
 /**
  * Generate a prompt for the LLM to answer a query using the codebase data from GitIngest.
  *
  * @param query The user's query about the codebase
- * @param history The conversation history
+ * @param history The conversation history (already trimmed by `selectHistory`)
  * @param tree The folder structure of the codebase
  * @param content The content of the codebase
  * @returns The prompt for the LLM
@@ -23,10 +161,15 @@ export async function generatePrompt(
   tree: string,
   content: string
 ): Promise<string> {
-  // Format conversation history
-  const formattedHistory = history
-    .map(message => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`)
-    .join('\n\n');
+  // Format conversation history, oldest first, so the newest turn sits nearest
+  // the current query.
+  const selected = selectHistory(history);
+  const formattedHistory =
+    selected.length === 0
+      ? '(none — this is the first question in the conversation)'
+      : selected
+          .map(message => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`)
+          .join('\n\n');
 
   // Check if this is a README generation request
   const isReadmeRequest = query.includes("Create a README.md for this repository");
@@ -112,7 +255,11 @@ INSTRUCTIONS:
    - For broad questions (e.g., "What is this repo about?"): Provide brief 3-5 line summaries
    - For specific technical questions: Provide detailed explanations
 3. Search the codebase content thoroughly before responding.
-4. Prioritize recent conversation history to maintain context.
+4. Use CONVERSATION HISTORY to resolve references in the current query. Pronouns
+   and elliptical follow-ups ("what about the other one?", "why does it do that?",
+   "show me that file") refer to entities from earlier turns — resolve them
+   against the history before answering, and state what you resolved them to when
+   it is ambiguous. Do not repeat an answer already given; build on it.
 5. When answering:
    - Begin with a direct answer to the query
    - Include relevant code snippets only when specifically helpful

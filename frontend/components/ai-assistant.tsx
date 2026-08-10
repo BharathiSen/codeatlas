@@ -27,6 +27,12 @@ import { Avatar } from "@/components/ui/avatar"
 const CODEATLAS_REPO_OWNER = process.env.NEXT_PUBLIC_CODEATLAS_REPO_OWNER || ""
 const CODEATLAS_REPO_NAME = process.env.NEXT_PUBLIC_CODEATLAS_REPO_NAME || ""
 
+/**
+ * Turns of conversation sent with each question. The server trims again to its
+ * own limit; sending fewer here keeps the request body small.
+ */
+const MAX_HISTORY_TURNS = 8
+
 interface AiAssistantProps {
   username: string
   repo: string
@@ -118,6 +124,13 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
         typeof window !== "undefined"
           ? window.location.origin
           : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+      // Send the conversation so far so follow-up questions resolve their
+      // referents. `messages` still holds the pre-send state here, which is
+      // exactly the history the server should see alongside `query`.
+      const history = messages
+        .slice(-MAX_HISTORY_TURNS)
+        .map(({ role, content }) => ({ role, content }))
+
       const response = await fetch(`${baseUrl}/api/gemini`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -128,6 +141,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
           filePath,
           fetchOnlyCurrentFile:
             input.includes("Explain file contents of") || input.includes("Explain this file"),
+          history,
         }),
       })
 

@@ -2,9 +2,17 @@ import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { fetchFileContent } from "@/lib/github";
 import { logger } from '@/lib/logger';
-import { generatePrompt, getRepoDataForPrompt, type GitIngestData } from '@/lib/prompt-generator';
+import {
+  buildPrompt,
+  estimateTokens,
+  getRepoDataForPrompt,
+  MAX_PROMPT_TOKENS,
+  type ConversationMessage,
+  type GitIngestData,
+} from '@/lib/prompt-generator';
 import { RedisCacheManager } from '@/lib/redis-cache-manager';
 import { getClientIP, RateLimiter } from '@/lib/rate-limiter';
+import { apiError, ErrorCode } from '@/lib/api-response';
 
 // Primary and secondary Gemini API clients
 const primaryGenAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -62,11 +70,6 @@ interface ContextStats {
   totalChars: number;
 }
 
-interface ConversationMessage {
-  role: string;
-  content: string;
-}
-
 export async function POST(req: Request) {
   // Scoped per request: a module-level handle would be shared across concurrent
   // requests and cleared by whichever finished first.
@@ -80,15 +83,23 @@ export async function POST(req: Request) {
     const rateLimitCheck = await RateLimiter.check(clientIP);
     if (!rateLimitCheck.allowed) {
       const resetDate = new Date(rateLimitCheck.resetAt * 1000);
+
+      if (rateLimitCheck.degraded) {
+        logger.error('Quota store unreachable; refusing request', { prefix: 'RateLimit' });
+        return apiError(
+          ErrorCode.QUOTA_UNAVAILABLE,
+          'The usage quota service is unavailable, so requests are paused. Please try again shortly.',
+          503,
+          { rateLimit: rateLimitCheck }
+        );
+      }
+
       logger.warn(`Rate limit exceeded for IP: ${clientIP}`, { prefix: 'RateLimit' });
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Daily limit of ${rateLimitCheck.limit} AI requests reached. Resets at ${resetDate.toLocaleTimeString()}.`,
-          rateLimited: true,
-          rateLimit: rateLimitCheck
-        },
-        { status: 429 }
+      return apiError(
+        ErrorCode.RATE_LIMITED,
+        `Daily limit of ${rateLimitCheck.limit} AI requests reached. Resets at ${resetDate.toLocaleTimeString()}.`,
+        429,
+        { rateLimited: true, rateLimit: rateLimitCheck }
       );
     }
 
@@ -102,6 +113,9 @@ export async function POST(req: Request) {
     logger.info(`[${new Date().toISOString()}] Starting query processing for repository: ${repoKey}`, { prefix: 'Query' });
 
     let prompt = '';
+    let promptTokens = 0;
+    let promptTruncated = false;
+    let historyTurns = 0;
     let contextStats: ContextStats = { files: 0, totalChars: 0 };
 
     // Start context preparation
@@ -160,12 +174,11 @@ Provide a detailed, technical response that directly addresses the user's query 
             logger.info(treeLines.slice(0, 20).join('\n') + (treeLines.length > 20 ? '\n... (truncated)' : ''), { prefix: 'Context' });
 
             // Generate prompt using the cached data
-            prompt = await generatePrompt(
-              query,
-              history.map((msg: ConversationMessage) => ({ role: msg.role, content: msg.content })),
-              repoData.tree,
-              repoData.content
-            );
+            const built = await buildPrompt(query, history as ConversationMessage[], repoData.tree, repoData.content);
+            prompt = built.prompt;
+            promptTokens = built.estimatedTokens;
+            promptTruncated = built.truncated;
+            historyTurns = built.historyTurns;
 
             contextStats.files = treeLines.length;
             contextStats.totalChars = contentChars;
@@ -188,12 +201,11 @@ Provide a detailed, technical response that directly addresses the user's query 
             const contentChars = gitIngestData.content.length;
 
             // Generate prompt using the GitIngest data
-            prompt = await generatePrompt(
-              query,
-              history.map((msg: ConversationMessage) => ({ role: msg.role, content: msg.content })),
-              gitIngestData.tree,
-              gitIngestData.content
-            );
+            const built = await buildPrompt(query, history as ConversationMessage[], gitIngestData.tree, gitIngestData.content);
+            prompt = built.prompt;
+            promptTokens = built.estimatedTokens;
+            promptTruncated = built.truncated;
+            historyTurns = built.historyTurns;
 
             contextStats.files = treeLines; // Approximation based on tree lines
             contextStats.totalChars = contentChars;
@@ -222,6 +234,32 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
     // After all context is prepared
     logger.context.stats(contextStats);
 
+    // Cost gate: the prompt is priced before it is sent, not after. The file-scoped
+    // and fallback paths bypass buildPrompt, so measure whatever we ended up with.
+    if (promptTokens === 0) {
+      promptTokens = estimateTokens(prompt);
+    }
+
+    logger.info(
+      `Prompt ready — ~${promptTokens} tokens, ${historyTurns} history turn(s)` +
+        (promptTruncated ? ', content truncated to fit budget' : ''),
+      { prefix: 'Prompt' }
+    );
+
+    if (promptTokens > MAX_PROMPT_TOKENS) {
+      clearTimeout(timeoutId);
+      logger.warn(
+        `Refusing ${repoKey}: ~${promptTokens} tokens exceeds the ${MAX_PROMPT_TOKENS} budget`,
+        { prefix: 'Prompt' }
+      );
+      return apiError(
+        ErrorCode.CONTEXT_TOO_LARGE,
+        'This repository is too large to answer against as a whole. Open a file and ask about it directly.',
+        413,
+        { estimatedTokens: promptTokens, maxTokens: MAX_PROMPT_TOKENS }
+      );
+    }
+
     // Generate response using Gemini (with fallback to secondary key)
     const response = await generateWithFallback(prompt);
 
@@ -232,7 +270,12 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
     return NextResponse.json({
       success: true,
       response,
-      rateLimit
+      rateLimit,
+      usage: {
+        estimatedPromptTokens: promptTokens,
+        truncated: promptTruncated,
+        historyTurns,
+      },
     });
   } catch (error) {
     clearTimeout(timeoutId);
@@ -240,16 +283,30 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
     const isTimeout = errorMessage.includes('aborted') || errorMessage.includes('timeout');
 
     logger.error(`Error processing Gemini request: ${errorMessage}`);
-    return NextResponse.json(
-      {
-        success: false,
-        error: isTimeout ?
-          'Request timed out. Please try with a smaller repository or specific file query.' :
-          `Failed to process request: ${errorMessage}`
-      },
-      {
-        status: isTimeout ? 504 : 500
-      }
+
+    if (isTimeout) {
+      return apiError(
+        ErrorCode.TIMEOUT,
+        'Request timed out. Please try with a smaller repository or a specific file query.',
+        504
+      );
+    }
+
+    // Provider quota exhaustion is upstream, not the caller's daily budget —
+    // distinguish it so the client does not report a limit the user has not hit.
+    const isUpstreamQuota = /quota|rate limit|429|RESOURCE_EXHAUSTED/i.test(errorMessage);
+    if (isUpstreamQuota) {
+      return apiError(
+        ErrorCode.UPSTREAM_RATE_LIMITED,
+        'The AI provider is rate-limiting requests right now. Please try again shortly.',
+        503
+      );
+    }
+
+    return apiError(
+      ErrorCode.GENERATION_FAILED,
+      `Failed to process request: ${errorMessage}`,
+      500
     );
   }
 }
