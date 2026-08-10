@@ -81,19 +81,19 @@ The ingestion service is separate because `gitingest` is a Python library. It's 
 
 ## Quickstart
 
-**You'll need:** Node 18+ with pnpm · Python 3.10+ · a Redis instance · a [Gemini API key](https://aistudio.google.com/app/apikey) · a GitHub PAT (`public_repo` is enough).
+**You'll need:** Node 18+ with pnpm · Python 3.10+ · a Redis instance · a [Gemini API key](https://aistudio.google.com/app/apikey) · a GitHub PAT (**classic, no scopes ticked** — CodeAtlas only reads public repos, so the token is purely for the higher rate limit).
 
 ```bash
 # 1 — install
-pnpm install
-pip install -r gitingest-api/requirements.txt
+cd frontend && pnpm install && cd ..
+pip install -r backend/requirements.txt
 
-# 2 — configure
-cp .env.example .env.local     # then fill in the values
+# 2 — configure (repo root; one file shared by both services)
+cp .env.example .env           # then fill in the values
 
 # 3 — run both services
-uvicorn main:app --reload --port 8000 --app-dir gitingest-api   # terminal 1
-pnpm dev                                                         # terminal 2
+uvicorn main:app --reload --port 8000 --app-dir backend   # terminal 1
+cd frontend && pnpm dev                                    # terminal 2
 ```
 
 Open `http://localhost:3000`, paste a repository, and the workspace opens at `/{owner}/{name}`.
@@ -103,7 +103,7 @@ Open `http://localhost:3000`, paste a repository, and the workspace opens at `/{
 
 ```bash
 docker build -t codeatlas .
-docker run -p 3000:3000 --env-file .env.local codeatlas
+docker run -p 3000:3000 --env-file .env codeatlas
 ```
 
 The ingestion service deploys separately — see `render.yaml`.
@@ -148,12 +148,14 @@ Quick-prompt buttons cover the common ones. The first is context-aware: it becom
 ## Layout
 
 ```
-app/            App Router — pages and API route handlers
-components/     Workspace panes, viewers, shadcn/ui primitives
-lib/            GitHub client, prompt assembly, caching, rate limiting
-hooks/          Shared React hooks
-gitingest-api/  FastAPI ingestion service
+frontend/       Next.js web application
+  app/          App Router — pages and API route handlers
+  components/   Workspace panes, viewers, site sections, shadcn/ui primitives
+  lib/          GitHub client, prompt assembly, caching, rate limiting
+backend/        FastAPI ingestion service
+docker/         Dockerfile + .dockerignore
 docs/           Engineering notebook — start here
+.env            Shared configuration for both services
 ```
 
 ---

@@ -38,7 +38,11 @@ export const DOC_SECTIONS: DocSection[] = [
         ],
       },
       { kind: "h3", text: "2. Configure the environment" },
-      { kind: "code", lines: ["cp .env.example frontend/.env.local"] },
+      { kind: "code", lines: ["cp .env.example .env"] },
+      {
+        kind: "p",
+        text: "The env file lives at the repository root and is shared by both services. frontend/next.config.mjs loads it explicitly, since Next.js otherwise only reads env files from its own directory.",
+      },
       {
         kind: "p",
         text: "Fill in a Gemini API key, a GitHub token, the ingestion service URL and a Redis connection string. See Configuration below.",
