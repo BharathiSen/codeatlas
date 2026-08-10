@@ -366,3 +366,73 @@ export async function getRepoDataForPrompt(username: string, repo: string): Prom
     };
   }
 }
+
+
+/**
+ * Assemble a prompt from retrieved chunks rather than the whole repository.
+ *
+ * The instruction block differs from the stuffed variant in one important way:
+ * the model is told it is seeing *selected* excerpts, not everything. Without
+ * that, "I don't see any authentication code" becomes a confident claim about
+ * the repository when it is only a claim about what retrieval returned.
+ */
+export async function buildRetrievedPrompt(
+  query: string,
+  history: ConversationMessage[],
+  tree: string,
+  retrievedContext: string,
+  meta: { used: number; omitted: number }
+): Promise<BuiltPrompt> {
+  const selected = selectHistory(history);
+  const formattedHistory =
+    selected.length === 0
+      ? '(none — this is the first question in the conversation)'
+      : selected
+          .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+          .join('\n\n');
+
+  const prompt = `
+You are a helpful assistant answering questions about a codebase. You are shown
+the repository's full folder structure and the excerpts most relevant to the
+current query, selected by semantic and keyword search.
+
+CURRENT QUERY:
+${query}
+
+FOLDER STRUCTURE (complete):
+${tree}
+
+RELEVANT EXCERPTS (${meta.used} selected${meta.omitted > 0 ? `, ${meta.omitted} lower-ranked omitted` : ''}):
+${retrievedContext}
+
+CONVERSATION HISTORY:
+${formattedHistory}
+
+INSTRUCTIONS:
+1. Answer from the excerpts above. They are the most relevant parts of the
+   repository for this query, not the whole of it.
+2. The folder structure IS complete — you may reason about what exists from it
+   even when the file's contents were not retrieved.
+3. If the excerpts do not contain what the question needs, say which file you
+   would need to see. Never conclude that something does not exist in the
+   repository merely because it was not retrieved — say "not in the retrieved
+   excerpts" instead.
+4. Cite real paths in backticks, e.g. \`lib/session.ts\`, so they link.
+5. Use CONVERSATION HISTORY to resolve pronouns and elliptical follow-ups.
+6. For architecture questions, include a mermaid diagram.
+
+FORMAT GUIDELINES:
+- Markdown. Fenced code blocks with a language tag.
+- Reference file paths as inline code so they become links.
+- Mermaid diagrams in \`\`\`mermaid blocks.
+
+Answer directly and concisely, and prefer accuracy over completeness.
+`;
+
+  return {
+    prompt,
+    estimatedTokens: estimateTokens(prompt),
+    truncated: meta.omitted > 0,
+    historyTurns: selected.length,
+  };
+}

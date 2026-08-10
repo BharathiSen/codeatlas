@@ -13,6 +13,8 @@ import {
 import { RedisCacheManager } from '@/lib/redis-cache-manager';
 import { getClientIP, RateLimiter } from '@/lib/rate-limiter';
 import { apiError, ErrorCode } from '@/lib/api-response';
+import { buildRetrievedContext, retrieve } from '@/lib/retrieval';
+import { buildRetrievedPrompt } from '@/lib/prompt-generator';
 
 // Define interfaces for data structures
 interface ContextStats {
@@ -77,6 +79,8 @@ export async function POST(req: Request) {
     let promptTokens = 0;
     let promptTruncated = false;
     let historyTurns = 0;
+    let retrievalUsed = false;
+    let chunksUsed = 0;
     let contextStats: ContextStats = { files: 0, totalChars: 0 };
 
     // Start context preparation
@@ -134,12 +138,44 @@ Provide a detailed, technical response that directly addresses the user's query 
             // Log first 20 lines of tree to avoid spamming
             logger.info(treeLines.slice(0, 20).join('\n') + (treeLines.length > 20 ? '\n... (truncated)' : ''), { prefix: 'Context' });
 
-            // Generate prompt using the cached data
-            const built = await buildPrompt(query, history as ConversationMessage[], repoData.tree, repoData.content);
-            prompt = built.prompt;
-            promptTokens = built.estimatedTokens;
-            promptTruncated = built.truncated;
-            historyTurns = built.historyTurns;
+            /*
+             * Retrieval first. Semantic + keyword search returns the excerpts
+             * that matter for this question; stuffing the whole repository is
+             * the fallback for when the index is missing or the service is
+             * down. Retrieval improves answers — it must never prevent one.
+             */
+            const retrieved = await retrieve(username, repo, query);
+
+            if (retrieved.available) {
+              const budget = buildRetrievedContext(
+                retrieved.chunks,
+                Math.floor(MAX_PROMPT_TOKENS * 0.7)
+              );
+              const built = await buildRetrievedPrompt(
+                query,
+                history as ConversationMessage[],
+                repoData.tree,
+                budget.context,
+                { used: budget.used, omitted: budget.omitted }
+              );
+              prompt = built.prompt;
+              promptTokens = built.estimatedTokens;
+              promptTruncated = built.truncated;
+              historyTurns = built.historyTurns;
+              retrievalUsed = true;
+              chunksUsed = budget.used;
+              logger.info(
+                `Retrieved ${budget.used} chunks for ${repoKey} (${budget.omitted} omitted)`,
+                { prefix: 'Retrieval' }
+              );
+            } else {
+              const built = await buildPrompt(query, history as ConversationMessage[], repoData.tree, repoData.content);
+              prompt = built.prompt;
+              promptTokens = built.estimatedTokens;
+              promptTruncated = built.truncated;
+              historyTurns = built.historyTurns;
+              logger.info(`No index for ${repoKey}; using whole-repository context`, { prefix: 'Retrieval' });
+            }
 
             contextStats.files = treeLines.length;
             contextStats.totalChars = contentChars;
@@ -249,6 +285,7 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
                 estimatedPromptTokens: promptTokens,
                 truncated: promptTruncated,
                 historyTurns,
+                retrieval: retrievalUsed ? { used: true, chunks: chunksUsed } : { used: false },
               },
             });
           } catch (error) {
@@ -287,6 +324,7 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
         estimatedPromptTokens: promptTokens,
         truncated: promptTruncated,
         historyTurns,
+        retrieval: retrievalUsed ? { used: true, chunks: chunksUsed } : { used: false },
       },
     });
   } catch (error) {

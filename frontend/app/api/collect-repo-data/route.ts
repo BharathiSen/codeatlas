@@ -3,6 +3,7 @@ import { logger } from '@/lib/logger';
 import { RedisCacheManager } from '@/lib/redis-cache-manager';
 import { fetchRepoSize } from '@/lib/github';
 import { apiError, apiSuccess, ErrorCode } from '@/lib/api-response';
+import { indexRepository } from '@/lib/retrieval';
 
 /**
  * Largest repository we will attempt to ingest, in kilobytes.
@@ -176,6 +177,12 @@ export async function POST(req: NextRequest) {
         // Save successful response to cache, then return exactly what was cached so
         // the hit and miss paths are indistinguishable to callers.
         await RedisCacheManager.saveToCache(username, repo, data);
+
+        // Build the retrieval index. Incremental on the service side, so this is
+        // cheap on re-ingestion. Deliberately not awaited: indexing must not add
+        // its latency to the user's first page load, and a failure here leaves
+        // the whole-repository fallback perfectly usable.
+        void indexRepository(username, repo, data.content).catch(() => undefined);
 
         return apiSuccess(data, { cached: false });
     } catch (error) {

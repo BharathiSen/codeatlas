@@ -1,5 +1,13 @@
 import logging
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Configuration lives in the repository root and is shared with the frontend.
+# Loaded before any module reads os.environ. `override=False` keeps a real
+# environment (Docker, Render) authoritative over the file.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
 from sys import prefix
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +20,8 @@ from typing import Optional
 
 from gitingest import ingest_async
 from uvicorn.main import logger
+
+from retrieval import get_service
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -57,6 +67,54 @@ async def fetch_github_content(github_link: str, max_file_size: int) -> dict:
     except Exception as e:
         logging.error(f"Error fetching content for {github_link}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to ingest repository: {str(e)}")
+
+class IndexRequest(BaseModel):
+    repo: str
+    content: str
+    force: bool = False
+
+
+class SearchRequest(BaseModel):
+    repo: str
+    query: str
+    limit: int = 12
+
+
+@app.post("/index/")
+async def index_repository(request: IndexRequest) -> dict:
+    """Chunk, embed and store a repository for retrieval.
+
+    Incremental: files whose SHA already matches are skipped without being
+    re-embedded. Safe to call on every ingestion.
+    """
+    try:
+        stats = await get_service().index_repository(
+            request.repo, request.content, force=request.force
+        )
+        return {"success": True, "data": stats}
+    except Exception as exc:
+        logging.exception("Indexing failed for %s", request.repo)
+        raise HTTPException(status_code=500, detail=f"Indexing failed: {exc}") from exc
+
+
+@app.post("/search/")
+async def search_repository(request: SearchRequest) -> dict:
+    """Hybrid retrieval over an indexed repository."""
+    try:
+        hits = await get_service().search(request.repo, request.query, limit=request.limit)
+        return {"success": True, "data": {"chunks": [h.to_dict() for h in hits]}}
+    except Exception as exc:
+        logging.exception("Search failed for %s", request.repo)
+        raise HTTPException(status_code=500, detail=f"Search failed: {exc}") from exc
+
+
+@app.get("/index/status")
+async def index_status(repo: str) -> dict:
+    try:
+        return {"success": True, "data": await get_service().status(repo)}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Status failed: {exc}") from exc
+
 
 @app.post("/ingest/")
 async def ingest_github_link(ingest_request: IngestRequest) -> dict:
