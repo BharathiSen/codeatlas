@@ -45,11 +45,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    webpackBuildWorker: true,
-    parallelServerBuildTraces: true,
-    parallelServerCompiles: true,
-  },
+  /*
+   * The `webpackBuildWorker` / `parallelServerCompiles` experiments were removed:
+   * they produced two spurious build failures (a WasmHash crash and a stale
+   * vendor-chunk resolution error) for a build-time saving in the low seconds.
+   * Reproducible builds are worth more than that.
+   */
 }
 
 export default nextConfig

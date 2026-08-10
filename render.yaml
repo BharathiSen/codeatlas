@@ -1,4 +1,9 @@
-# render.yaml — CodeAtlas ingestion service (backend/)
+# render.yaml — CodeAtlas ingestion + retrieval service (backend/)
+#
+# Qdrant is NOT provisioned here: Render has no managed vector database, so
+# QDRANT_URL must point at a Qdrant Cloud cluster or a separately hosted
+# instance. Without it the service still ingests and the web app falls back to
+# whole-repository context — retrieval simply stays off.
 services:
   - type: web
     name: codeatlas-ingest-api
@@ -7,3 +12,14 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /ping
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: INGEST_SERVICE_TOKEN
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: EMBEDDING_DIMENSIONS
+        value: "768"

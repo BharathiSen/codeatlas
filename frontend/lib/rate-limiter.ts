@@ -24,21 +24,38 @@ export interface RateLimitInfo {
 }
 
 /**
- * Resolve the caller's IP from proxy headers.
+ * Number of proxies between the client and this app.
+ *
+ * `x-forwarded-for` is a client-controllable list — anyone can send
+ * `X-Forwarded-For: 1.2.3.4` and mint themselves a fresh quota. Only the hops
+ * *appended by infrastructure you control* are trustworthy, so the real client
+ * is counted from the right-hand end, not taken from the left.
+ *
+ * 0 (the default) means no trusted proxy: the header is ignored entirely and
+ * every caller shares one bucket, which fails safe. Set it to 1 behind a single
+ * reverse proxy, Vercel or Cloudflare.
+ */
+const TRUSTED_PROXY_HOPS = Number(process.env.TRUSTED_PROXY_HOPS ?? 0);
+
+/**
+ * Resolve the caller's IP for quota purposes.
  *
  * Shared by every route that consults the rate limiter so the quota key is
- * derived identically everywhere. Note that these headers are only trustworthy
- * behind a proxy that sets them; see the notebook's known limitations.
+ * derived identically everywhere.
  */
 export function getClientIP(req: Request): string {
-  const forwarded = req.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
+  if (TRUSTED_PROXY_HOPS > 0) {
+    const forwarded = req.headers.get('x-forwarded-for');
+    if (forwarded) {
+      const hops = forwarded.split(',').map((h) => h.trim()).filter(Boolean);
+      // The last entry was appended by the nearest proxy; step back one hop per
+      // trusted proxy to reach the address that proxy actually observed.
+      const candidate = hops[hops.length - TRUSTED_PROXY_HOPS];
+      if (candidate) return candidate;
+    }
 
-  const realIp = req.headers.get('x-real-ip');
-  if (realIp) {
-    return realIp;
+    const realIp = req.headers.get('x-real-ip');
+    if (realIp) return realIp;
   }
 
   return 'unknown';

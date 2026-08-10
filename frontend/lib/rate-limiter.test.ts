@@ -53,15 +53,13 @@ describe("getClientIP", () => {
   const req = (headers: Record<string, string>) =>
     new Request("https://example.com", { headers })
 
-  it("prefers the first x-forwarded-for entry", () => {
-    expect(getClientIP(req({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" }))).toBe("1.2.3.4")
+  it("ignores forwarding headers when no proxy is trusted", () => {
+    // The default posture: a spoofed header must not mint a fresh quota.
+    expect(getClientIP(req({ "x-forwarded-for": "1.2.3.4" }))).toBe("unknown")
+    expect(getClientIP(req({ "x-real-ip": "9.9.9.9" }))).toBe("unknown")
   })
 
-  it("falls back to x-real-ip", () => {
-    expect(getClientIP(req({ "x-real-ip": "9.9.9.9" }))).toBe("9.9.9.9")
-  })
-
-  it("returns 'unknown' when neither header is present", () => {
+  it("returns 'unknown' when no headers are present", () => {
     expect(getClientIP(req({}))).toBe("unknown")
   })
 })

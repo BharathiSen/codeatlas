@@ -65,7 +65,14 @@ jobs:
           cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
 
       - name: Import check
         run: python -c "import main; print('ingestion service imports OK')"
+
+      # Chunking and retrieval decide answer quality and cost. They are tested
+      # against a fake Qdrant and stubbed embeddings, so CI makes no paid calls.
+      - name: Test
+        run: python -m pytest -q
