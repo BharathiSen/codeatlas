@@ -63,7 +63,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className="dark">
-      <head>
+      {/*
+       * No hand-written <head>: the App Router builds it from `metadata`, and a
+       * manual one introduces whitespace text nodes that fail hydration and take
+       * the injected stylesheet down with them. next/script places itself.
+       */}
+      <body className={`${ibmPlexSans.variable} ${bricolage.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+          {children}
+          <Analytics />
+          <SpeedInsights />
+        </ThemeProvider>
+
         {/* Optional analytics — set NEXT_PUBLIC_RYBBIT_SITE_ID to enable for your own CodeAtlas deployment */}
         {process.env.NEXT_PUBLIC_RYBBIT_SITE_ID && (
           <Script
@@ -72,13 +83,6 @@ export default function RootLayout({
             strategy="afterInteractive"
           />
         )}
-      </head>
-      <body className={`${ibmPlexSans.variable} ${bricolage.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
-          {children}
-          <Analytics />
-          <SpeedInsights />
-        </ThemeProvider>
       </body>
     </html>
   )
