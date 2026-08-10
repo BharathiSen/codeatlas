@@ -63,3 +63,22 @@ export function apiError(
   if (details) body.details = details;
   return NextResponse.json(body, { status });
 }
+
+
+/**
+ * GitHub owner and repository names are restricted to these characters.
+ *
+ * Both values are interpolated into an outbound URL, so validating them here
+ * keeps path traversal and userinfo tricks (`a@evil.com`) out of the request
+ * before it is built, rather than relying on the receiver to notice.
+ */
+const REPO_SEGMENT = /^[A-Za-z0-9._-]{1,100}$/;
+
+export function isValidRepoSegment(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    REPO_SEGMENT.test(value) &&
+    value !== "." &&
+    value !== ".."
+  );
+}

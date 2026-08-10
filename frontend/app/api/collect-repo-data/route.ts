@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
 import { RedisCacheManager } from '@/lib/redis-cache-manager';
 import { fetchRepoSize } from '@/lib/github';
-import { apiError, apiSuccess, ErrorCode } from '@/lib/api-response';
+import { apiError, apiSuccess, ErrorCode, isValidRepoSegment } from '@/lib/api-response';
 import { indexRepository } from '@/lib/retrieval';
 
 /**
@@ -28,6 +28,14 @@ export async function POST(req: NextRequest) {
                 400
             );
         }
+
+    if (!isValidRepoSegment(username) || !isValidRepoSegment(repo)) {
+      return apiError(
+        ErrorCode.INVALID_REQUEST,
+        'Owner and repository must contain only letters, numbers, dots, hyphens and underscores.',
+        400
+      );
+    }
 
         const repoUrl = `https://github.com/${username}/${repo}`;
         const apiUrl = process.env.GITINGEST_API_URL;
@@ -104,7 +112,12 @@ export async function POST(req: NextRequest) {
         try {
             response = await fetch(`${apiUrl}/ingest/`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(process.env.INGEST_SERVICE_TOKEN
+                        ? { 'X-Service-Token': process.env.INGEST_SERVICE_TOKEN }
+                        : {}),
+                },
                 body: JSON.stringify({ github_link: repoUrl }),
                 signal: controller.signal
             });

@@ -1,0 +1,73 @@
+# Full CodeAtlas stack. Run from the repository root:
+#   docker compose -f docker/docker-compose.yml --env-file .env up --build
+#
+# Four services: the web app, the ingestion/retrieval backend, Redis (cache and
+# quota) and Qdrant (vector store). Only the web app is published to the host —
+# the rest talk over the compose network, which is why the backend's service
+# token is the boundary that matters rather than port exposure.
+
+name: codeatlas
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?set GEMINI_API_KEY in .env}
+      GEMINI_API_KEY_SECONDARY: ${GEMINI_API_KEY_SECONDARY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-flash-lite-latest}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:?set GITHUB_TOKEN in .env}
+      GITINGEST_API_URL: http://backend:8000
+      REDIS_URL: redis://redis:6379
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      INGEST_SERVICE_TOKEN: ${INGEST_SERVICE_TOKEN:-}
+      AI_DAILY_LIMIT: ${AI_DAILY_LIMIT:-20}
+      MAX_REPO_SIZE_KB: ${MAX_REPO_SIZE_KB:-150000}
+      MAX_PROMPT_TOKENS: ${MAX_PROMPT_TOKENS:-250000}
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?set GEMINI_API_KEY in .env}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-gemini-embedding-001}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-768}
+      QDRANT_URL: http://qdrant:6333
+      INGEST_SERVICE_TOKEN: ${INGEST_SERVICE_TOKEN:-}
+      CORS_ALLOWED_ORIGINS: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    depends_on:
+      qdrant:
+        condition: service_started
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    volumes:
+      - qdrant-data:/qdrant/storage
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  qdrant-data:

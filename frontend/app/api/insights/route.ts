@@ -3,7 +3,7 @@ import { logger } from '@/lib/logger';
 import { RedisCacheManager } from '@/lib/redis-cache-manager';
 import { generateWithFallback } from '@/lib/gemini';
 import { getClientIP, RateLimiter } from '@/lib/rate-limiter';
-import { apiError, apiSuccess, ErrorCode } from '@/lib/api-response';
+import { apiError, apiSuccess, ErrorCode, isValidRepoSegment } from '@/lib/api-response';
 import {
   applyTokenBudget,
   estimateTokens,
@@ -61,6 +61,14 @@ export async function POST(req: NextRequest) {
       return apiError(
         ErrorCode.MISSING_PARAMETERS,
         'Fields "username", "repo" and "kind" are required.',
+        400
+      );
+    }
+
+    if (!isValidRepoSegment(username) || !isValidRepoSegment(repo)) {
+      return apiError(
+        ErrorCode.INVALID_REQUEST,
+        'Owner and repository must contain only letters, numbers, dots, hyphens and underscores.',
         400
       );
     }

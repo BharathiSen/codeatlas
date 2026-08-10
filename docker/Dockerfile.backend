@@ -1,0 +1,31 @@
+# CodeAtlas ingestion + retrieval service.
+# Build from the repository root:
+#   docker build -f docker/Dockerfile.backend -t codeatlas-backend .
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# git is required: gitingest clones repositories. Build tooling is needed for the
+# tree-sitter wheels on platforms without a prebuilt binary.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY backend/ ./
+
+# Configuration is supplied at run time, never baked into the image.
+ENV PORT=8000
+EXPOSE 8000
+
+# Run as a non-root user — this service clones untrusted repositories.
+RUN useradd --create-home --uid 10001 codeatlas && chown -R codeatlas:codeatlas /app
+USER codeatlas
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request,os;urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"PORT\",8000)}/ping').read()" || exit 1
+
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]

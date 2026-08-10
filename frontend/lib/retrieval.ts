@@ -16,6 +16,9 @@ import { estimateTokens } from '@/lib/prompt-generator';
 
 const API_URL = process.env.GITINGEST_API_URL || 'http://localhost:8000';
 
+/** Shared secret for the ingestion service. Unset in local development. */
+const SERVICE_TOKEN = process.env.INGEST_SERVICE_TOKEN || '';
+
 /** Retrieval is an optimisation — do not let it hold up a request. */
 const SEARCH_TIMEOUT_MS = Number(process.env.RETRIEVAL_TIMEOUT_MS ?? 20_000);
 const INDEX_TIMEOUT_MS = 300_000;
@@ -47,7 +50,10 @@ async function post<T>(path: string, body: unknown, timeoutMs: number): Promise<
   try {
     const response = await fetch(`${API_URL}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(SERVICE_TOKEN ? { 'X-Service-Token': SERVICE_TOKEN } : {}),
+      },
       body: JSON.stringify(body),
       signal: controller.signal,
     });

@@ -12,7 +12,7 @@ import {
 } from '@/lib/prompt-generator';
 import { RedisCacheManager } from '@/lib/redis-cache-manager';
 import { getClientIP, RateLimiter } from '@/lib/rate-limiter';
-import { apiError, ErrorCode } from '@/lib/api-response';
+import { apiError, ErrorCode, isValidRepoSegment } from '@/lib/api-response';
 import { buildRetrievedContext, retrieve } from '@/lib/retrieval';
 import { buildRetrievedPrompt } from '@/lib/prompt-generator';
 
@@ -63,6 +63,14 @@ export async function POST(req: Request) {
       return apiError(
         ErrorCode.MISSING_PARAMETERS,
         'Fields "username", "repo" and a non-empty "query" are required.',
+        400
+      );
+    }
+
+    if (!isValidRepoSegment(username) || !isValidRepoSegment(repo)) {
+      return apiError(
+        ErrorCode.INVALID_REQUEST,
+        'Owner and repository must contain only letters, numbers, dots, hyphens and underscores.',
         400
       );
     }

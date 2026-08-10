@@ -41,8 +41,9 @@ support.js
 .DS_Store
 Thumbs.db
 
-docs/ENGINEERING_NOTEBOOK.md
 CLAUDE.md
 
 ENGINEERING_NOTEBOOK.md
 docs/rules.md
+futurextensions.md
+

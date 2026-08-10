@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -9,7 +10,7 @@ from dotenv import load_dotenv
 # environment (Docker, Render) authoritative over the file.
 load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
 from sys import prefix
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -29,13 +30,60 @@ logging.basicConfig(level=logging.INFO)
 app = FastAPI()
 
 # Enable CORS to allow cross-origin requests from the frontend
+# Origins permitted to call this service from a browser. Defaults to local
+# development; set CORS_ALLOWED_ORIGINS (comma-separated) in production.
+#
+# The previous configuration was `allow_origins=["*"]` with
+# `allow_credentials=True`, which browsers reject outright as a combination, and
+# which would have let any site on the internet drive /index/ — an endpoint that
+# spends money on embeddings.
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get(
+        "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001"
+    ).split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Service-Token"],
 )
+
+# Shared secret between the web app and this service. Unset means open, which is
+# fine on a private network and not fine on a public one — the service is warned
+# about at startup in that case.
+SERVICE_TOKEN = os.environ.get("INGEST_SERVICE_TOKEN", "")
+
+if not SERVICE_TOKEN:
+    logging.warning(
+        "INGEST_SERVICE_TOKEN is not set — /index/ and /search/ are unauthenticated. "
+        "Set it before exposing this service beyond localhost."
+    )
+
+
+def require_service_token(x_service_token: str = Header(default="")) -> None:
+    """Guard the endpoints that cost money. No-op when no token is configured."""
+    if SERVICE_TOKEN and x_service_token != SERVICE_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid or missing service token")
+
+
+# Owner/repo come from user input and are interpolated into a URL, so constrain
+# them to what GitHub actually permits before they can reach the network layer.
+REPO_SEGMENT = re.compile(r"^[A-Za-z0-9._-]{1,100}$")
+
+
+def validate_repo_key(repo_key: str) -> str:
+    """Accept only `owner/name` built from GitHub-legal characters."""
+    parts = repo_key.split("/")
+    if len(parts) != 2 or not all(REPO_SEGMENT.match(p) for p in parts):
+        raise HTTPException(status_code=400, detail=f"Invalid repository key: {repo_key!r}")
+    if any(p in {".", ".."} for p in parts):
+        raise HTTPException(status_code=400, detail="Invalid repository key")
+    return repo_key
 
 
 class IngestRequest(BaseModel):
@@ -80,13 +128,14 @@ class SearchRequest(BaseModel):
     limit: int = 12
 
 
-@app.post("/index/")
+@app.post("/index/", dependencies=[Depends(require_service_token)])
 async def index_repository(request: IndexRequest) -> dict:
     """Chunk, embed and store a repository for retrieval.
 
     Incremental: files whose SHA already matches are skipped without being
     re-embedded. Safe to call on every ingestion.
     """
+    validate_repo_key(request.repo)
     try:
         stats = await get_service().index_repository(
             request.repo, request.content, force=request.force
@@ -97,9 +146,10 @@ async def index_repository(request: IndexRequest) -> dict:
         raise HTTPException(status_code=500, detail=f"Indexing failed: {exc}") from exc
 
 
-@app.post("/search/")
+@app.post("/search/", dependencies=[Depends(require_service_token)])
 async def search_repository(request: SearchRequest) -> dict:
     """Hybrid retrieval over an indexed repository."""
+    validate_repo_key(request.repo)
     try:
         hits = await get_service().search(request.repo, request.query, limit=request.limit)
         return {"success": True, "data": {"chunks": [h.to_dict() for h in hits]}}
@@ -110,13 +160,14 @@ async def search_repository(request: SearchRequest) -> dict:
 
 @app.get("/index/status")
 async def index_status(repo: str) -> dict:
+    validate_repo_key(repo)
     try:
         return {"success": True, "data": await get_service().status(repo)}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Status failed: {exc}") from exc
 
 
-@app.post("/ingest/")
+@app.post("/ingest/", dependencies=[Depends(require_service_token)])
 async def ingest_github_link(ingest_request: IngestRequest) -> dict:
     github_link = ingest_request.github_link
     max_file_size = ingest_request.max_file_size
