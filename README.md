@@ -81,7 +81,7 @@ The ingestion service is separate because `gitingest` is a Python library. It's 
 
 ## Quickstart
 
-**You'll need:** Node 18+ with pnpm · Python 3.10+ · a Redis instance · a [Gemini API key](https://aistudio.google.com/app/apikey) · a GitHub PAT (**classic, no scopes ticked** CodeAtlas only reads public repos, so the token is purely for the higher rate limit).
+**You'll need:** Node 20+ with pnpm · Python 3.10+ · a Redis instance · a [Gemini API key](https://aistudio.google.com/app/apikey) · a GitHub PAT (**classic, no scopes ticked** CodeAtlas only reads public repos, so the token is purely for the higher rate limit).
 
 ```bash
 # 1 — install
@@ -96,17 +96,25 @@ uvicorn main:app --reload --port 8000 --app-dir backend   # terminal 1
 cd frontend && pnpm dev                                    # terminal 2
 ```
 
-Open `http://localhost:3000`, paste a repository, and the workspace opens at `/{owner}/{name}`.
+Open `http://localhost:3001`, paste a repository, and the workspace opens at `/{owner}/{name}`.
 
 <details>
-<summary><strong>Docker (web app only)</strong></summary>
+<summary><strong>Docker (full stack)</strong></summary>
 
 ```bash
-docker build -t codeatlas .
-docker run -p 3000:3000 --env-file .env codeatlas
+cd docker
+docker compose --env-file ../.env up --build
 ```
 
-The ingestion service deploys separately — see `render.yaml`.
+Six containers: the web app, the ingestion/retrieval backend, Redis, Qdrant, Postgres,
+and a one-shot `migrate` service that applies `database/migrations` and exits before
+the web app starts. Only the web app is published — on **`http://localhost:3000`**,
+not 3001; `pnpm dev` uses 3001 so the two can run side by side.
+
+Sign-in does not work against the Docker stack unless your OAuth app's callback is
+registered for port 3000 — see §20 of the engineering notebook.
+
+The ingestion service can also deploy on its own — see `render.yaml`.
 </details>
 
 ---
@@ -119,9 +127,15 @@ Every setting is an environment variable. `.env.example` documents all of them; 
 |---|---|
 | `GEMINI_API_KEY` | Answering model |
 | `GITHUB_TOKEN` | Repository metadata and file reads |
-| `GITINGEST_API_URL` | Where the ingestion service lives |
-| `REDIS_URL` | Repository cache **and** rate-limit store |
+| `GITINGEST_API_URL` | Where the ingestion service lives (compose sets this itself) |
+| `REDIS_URL` | Repository cache **and** rate-limit store (compose sets this itself) |
 | `NEXT_PUBLIC_APP_URL` | This deployment's public base URL |
+
+Deploying beyond a laptop needs three more: `INGEST_SERVICE_TOKEN` (without it the
+backend's paid `/ingest/`, `/index/` and `/search/` endpoints are unauthenticated),
+`AUTH_SECRET` (whenever sign-in is configured), and `POSTGRES_PASSWORD` (it defaults
+to `codeatlas`). §20 of the engineering notebook has the full required/optional split
+and the production OAuth callback.
 
 Optional: `GEMINI_API_KEY_SECONDARY` (failover) · `NEXT_PUBLIC_CODEATLAS_REPO_OWNER`/`_NAME` (star count in the header) · `NEXT_PUBLIC_RYBBIT_SITE_ID` (analytics; blank disables).
 
