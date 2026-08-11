@@ -3,6 +3,13 @@
 # dependencies
 node_modules/
 
+# pnpm's content-addressable store, when it lands inside the repository rather
+# than in the user profile — which happens whenever pnpm runs in a container with
+# the repo bind-mounted. Thousands of files, all regenerable, none belonging here.
+# Note this is the store, NOT pnpm-lock.yaml: the lockfile is tracked deliberately
+# and must stay that way, so no broad `pnpm*` rule is used.
+.pnpm-store/
+
 # next.js — the app lives in frontend/
 .next/
 out/

@@ -1,14 +1,100 @@
-# render.yaml — CodeAtlas ingestion + retrieval service (backend/)
+# render.yaml — CodeAtlas production blueprint
+#
+# Five declared components; one dependency is deliberately external.
+#
+#   codeatlas-web          Next.js app, built from docker/Dockerfile
+#   codeatlas-ingest-api   FastAPI ingestion + retrieval service (backend/)
+#   codeatlas-migrate      one-shot schema migration, run before promoting web
+#   codeatlas-keyvalue     Redis-compatible cache + quota store
+#   codeatlas-postgres     saved conversations
 #
 # Qdrant is NOT provisioned here: Render has no managed vector database, so
 # QDRANT_URL must point at a Qdrant Cloud cluster or a separately hosted
 # instance. Without it the service still ingests and the web app falls back to
 # whole-repository context — retrieval simply stays off.
+#
+# ── CONFIRM BEFORE DEPLOYING ────────────────────────────────────────────────
+# `plan:` values below are the smallest paid tiers from Render's own docs and
+# are COST DECISIONS, not defaults chosen for you. Check them against current
+# Render pricing and your expected load before applying this blueprint.
+# ────────────────────────────────────────────────────────────────────────────
+#
+# Every `sync: false` value is set in the Render dashboard and never committed.
+# See §20 of docs/ENGINEERING_NOTEBOOK.md for the full required/optional split.
+
 services:
+  # ── Web application ───────────────────────────────────────────────────────
+  # Built from docker/Dockerfile with the repository root as context, which is
+  # what that Dockerfile expects (it copies frontend/ and database/). The final
+  # stage is `runner`, so no build target has to be selected — Render
+  # Blueprints have no field for one.
+  #
+  # `next start` honours $PORT: next.config.mjs treats PORT as reserved only to
+  # stop a .env file injecting it, so Render's assigned port passes through.
+  - type: web
+    name: codeatlas-web
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /
+    envVars:
+      # Secrets — set in the dashboard.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY_SECONDARY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: AUTH_SECRET
+        sync: false
+      - key: AUTH_GITHUB_ID
+        sync: false
+      - key: AUTH_GITHUB_SECRET
+        sync: false
+      # Shared secret with the ingestion service. Must match the value set on
+      # codeatlas-ingest-api exactly, or every /ingest/, /index/ and /search/
+      # call returns 401.
+      - key: INGEST_SERVICE_TOKEN
+        sync: false
+
+      # Wired by Render.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: codeatlas-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: codeatlas-keyvalue
+          type: keyvalue
+          property: connectionString
+
+      # Origins. All three must name the same public URL, and the OAuth app's
+      # callback must be <that origin>/api/auth/callback/github.
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: AUTH_URL
+        sync: false
+      # The ingestion service's URL. Not derived from the service above because
+      # a scheme-qualified base URL is needed, not a bare host.
+      - key: GITINGEST_API_URL
+        sync: false
+
+      # Render terminates TLS and proxies to the service, so the client address
+      # arrives one hop away in X-Forwarded-For. Left at 0 the header is ignored
+      # and every anonymous caller shares the proxy's single quota bucket.
+      - key: TRUSTED_PROXY_HOPS
+        value: "1"
+
+  # ── Ingestion + retrieval service ─────────────────────────────────────────
+  # Publicly reachable, so INGEST_SERVICE_TOKEN is the only thing standing
+  # between the internet and endpoints that spend money on embeddings. It is
+  # not optional here, unlike in local compose where nothing was published.
   - type: web
     name: codeatlas-ingest-api
     runtime: python
     rootDir: backend
+    plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /ping
@@ -19,7 +105,63 @@ services:
         sync: false
       - key: QDRANT_URL
         sync: false
+      # Browser origins allowed to call this service. Set to the web app's
+      # public origin — not to a localhost value (D-40).
       - key: CORS_ALLOWED_ORIGINS
         sync: false
       - key: EMBEDDING_DIMENSIONS
         value: "768"
+
+  # ── Schema migration ──────────────────────────────────────────────────────
+  # A cron job rather than a Docker service, for a concrete reason: the
+  # migration toolchain lives in the Dockerfile's `migrate` stage, and Render
+  # Blueprints cannot select a build target, so a Docker service here would
+  # build `runner` — which deliberately ships without drizzle-kit (D-35, D-37)
+  # — and fail. Running it on the node runtime reuses the repository directly,
+  # keeps the serving image lean, and needs no second Dockerfile.
+  #
+  # `buildCommand` installs devDependencies, which is where drizzle-kit is.
+  # drizzle.config.ts writes to ../database/migrations relative to frontend/,
+  # so the checked-in SQL resolves without any path change.
+  #
+  # ORDERING IS NOT ENFORCED BY THE PLATFORM. Render has no equivalent of
+  # compose's `service_completed_successfully`. Trigger this job manually and
+  # confirm it succeeded BEFORE promoting a new codeatlas-web version. The
+  # schedule below exists only because Render requires the field; it is set to
+  # a date that effectively never fires so the job is manual-trigger only.
+  - type: cron
+    name: codeatlas-migrate
+    runtime: node
+    rootDir: frontend
+    plan: starter
+    schedule: "0 0 1 1 *"
+    # pnpm is installed explicitly rather than relying on Render detecting it
+    # from the lockfile — their Node docs do not state that it is auto-detected,
+    # and a migration job is the wrong place to discover otherwise. Pinned to the
+    # same major as the Dockerfile and CI, for the reason in D-38: an unpinned
+    # `npm install -g pnpm` silently tracks whatever the host Node allows.
+    buildCommand: npm install -g pnpm@10 && pnpm install --frozen-lockfile
+    startCommand: pnpm db:migrate
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: codeatlas-postgres
+          property: connectionString
+
+  # ── Cache and quota store ─────────────────────────────────────────────────
+  # An empty ipAllowList means reachable only from inside the Render network.
+  # Losing this costs cache warmth and resets quota counters; it holds no data
+  # that cannot be rebuilt.
+  - type: keyvalue
+    name: codeatlas-keyvalue
+    plan: starter
+    ipAllowList: []
+
+# ── Saved conversations ─────────────────────────────────────────────────────
+# The only durable application state. Everything else — repository cache,
+# answer cache, quota counters, and the Qdrant index — can be rebuilt by
+# re-ingesting. Omit this entirely and CodeAtlas still answers questions;
+# conversations simply stop persisting (D-31).
+databases:
+  - name: codeatlas-postgres
+    plan: basic-256mb

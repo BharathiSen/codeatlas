@@ -13,5 +13,6 @@
         "uvicorn",
         "venv",
         "vercel"
-    ]
+    ],
+    "git.ignoreLimitWarning": true
 }
