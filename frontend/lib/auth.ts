@@ -15,6 +15,18 @@ import { getClientIP } from "./rate-limiter"
  * When persistence lands, swap the strategy — the rest of the app only ever
  * asks for `quotaSubject`.
  */
+/**
+ * Whether sign-in can actually work.
+ *
+ * Both the UI control and the `/api/auth/*` handlers consult this. Without it,
+ * an unconfigured deployment still mounts the auth routes and every one of them
+ * answers 500 — an endpoint that exists only to fail is worse than one that does
+ * not exist.
+ */
+export function isAuthConfigured(): boolean {
+  return Boolean(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET)
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     GitHub({
@@ -23,6 +35,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       authorization: { params: { scope: "read:user" } },
     }),
   ],
+
+  /**
+   * Auth.js refuses to serve a request whose Host header it does not trust,
+   * because that header decides where the OAuth callback is sent — an attacker
+   * who controls it can redirect the code to themselves. It only trusts hosts
+   * automatically on Vercel, so a self-hosted deployment must say so.
+   *
+   * Development is trusted outright: the host is localhost and the alternative
+   * is that every auth route answers 500 out of the box, which is how this was
+   * found. Production must opt in explicitly with `AUTH_TRUST_HOST=true` (behind
+   * a proxy you control) or pin the origin with `AUTH_URL`.
+   */
+  trustHost:
+    process.env.NODE_ENV !== "production" ||
+    process.env.AUTH_TRUST_HOST === "true" ||
+    Boolean(process.env.AUTH_URL),
 
   session: { strategy: "jwt" },
 

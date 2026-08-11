@@ -81,7 +81,21 @@ export class RateLimiter {
         throw new Error('REDIS_URL environment variable not configured');
       }
 
-      this.redis = new Redis(redisUrl);
+      this.redis = new Redis(redisUrl, {
+      /*
+       * Fail fast rather than hang.
+       *
+       * ioredis defaults to 20 retries plus an offline queue, so with Redis
+       * down a single command took ~10s to reject and an answering request
+       * ~35s before it could return its 503 — measured. The quota's posture is
+       * to refuse when it cannot be read, and a refusal is only useful if it
+       * arrives promptly; a caller waiting half a minute for "try again" is a
+       * worse outage than the one being reported.
+       */
+      maxRetriesPerRequest: 1,
+      connectTimeout: 3000,
+      commandTimeout: 3000,
+    });
 
       this.redis.on('error', (error) => {
         logger.error(`Redis rate limiter error: ${error}`, { prefix: 'RateLimit' });

@@ -7,6 +7,8 @@
  */
 process.env.NODE_ENV = "test"
 
+const EVAL_RUN = process.env.VITEST_EVAL === "true"
+
 import { defineConfig } from "vitest/config"
 import react from "@vitejs/plugin-react"
 import path from "node:path"
@@ -17,7 +19,14 @@ export default defineConfig({
     // Node by default; component tests opt into jsdom with a per-file
     // `// @vitest-environment jsdom` pragma, so pure logic tests stay fast.
     environment: "node",
-    include: ["lib/**/*.test.ts", "app/**/*.test.ts", "components/**/*.test.tsx"],
+    /*
+     * `pnpm test` must stay free and offline, so the answer-quality eval — which
+     * makes real, billable model calls — is not part of the default set. Run it
+     * deliberately with `VITEST_EVAL=true pnpm test`.
+     */
+    include: EVAL_RUN
+      ? ["eval/**/*.eval.ts"]
+      : ["lib/**/*.test.ts", "app/**/*.test.ts", "components/**/*.test.tsx"],
     setupFiles: ["./vitest.setup.ts"],
     // Threads start far faster than forks on Windows; booting a jsdom
     // environment in a forked worker regularly exceeded the default handshake

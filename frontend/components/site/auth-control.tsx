@@ -1,5 +1,5 @@
 import { Github, LogOut } from "lucide-react"
-import { auth, signIn, signOut } from "@/lib/auth"
+import { auth, isAuthConfigured, signIn, signOut } from "@/lib/auth"
 
 /**
  * Sign-in / sign-out control.
@@ -15,7 +15,7 @@ import { auth, signIn, signOut } from "@/lib/auth"
  * a button that can only fail.
  */
 export async function AuthControl({ compact = false }: { compact?: boolean }) {
-  if (!process.env.AUTH_GITHUB_ID || !process.env.AUTH_GITHUB_SECRET) return null
+  if (!isAuthConfigured()) return null
 
   const session = await auth()
 
