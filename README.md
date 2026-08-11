@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/logo.svg" alt="" width="72" height="72" />
+  <img src="docs/image.png" alt="" width="1200" height="400" />
 
   <h1>CodeAtlas</h1>
 
