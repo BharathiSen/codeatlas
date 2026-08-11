@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import { currentRequestId } from './request-context';
 
 type LogLevel = 'info' | 'success' | 'warning' | 'error' | 'debug' | 'warn';
 
@@ -34,6 +35,17 @@ class Logger {
 
     if (options.prefix) {
       parts.push(chalk.cyan(`[${options.prefix}]`));
+    }
+
+    /*
+     * The id that the caller was also handed in the response body, so a report
+     * of "request abc123 failed" can be grepped straight to the lines that
+     * produced it. Absent outside a request (scripts, module init), and short
+     * enough to stay readable at the head of every line.
+     */
+    const requestId = currentRequestId();
+    if (requestId) {
+      parts.push(chalk.gray(`[${requestId.slice(0, 8)}]`));
     }
 
     switch (options.level) {
@@ -81,34 +93,6 @@ class Logger {
       console.debug(this.formatMessage(message, { ...options, level: 'debug' }));
     }
   }
-
-  // Repository analysis specific logging methods
-  repoAnalysis = {
-    start: (repoId: string) => {
-      this.info(`Starting analysis of repository: ${repoId}`, { prefix: 'Analysis' });
-    },
-    fileDiscovered: (count: number) => {
-      this.info(`Found ${count} total files in repository`, { prefix: 'Analysis' });
-    },
-    relevantFiles: (count: number) => {
-      this.info(`Selected ${count} relevant files for analysis`, { prefix: 'Analysis' });
-    },
-    processingFile: (filePath: string) => {
-      this.debug(`Processing file: ${filePath}`, { prefix: 'Analysis' });
-    },
-    fileProcessed: (filePath: string, chunks: number) => {
-      this.success(`Processed ${filePath} (${chunks} chunks)`, { prefix: 'Analysis' });
-    },
-    error: (filePath: string, error: string) => {
-      this.error(`Error processing ${filePath}: ${error}`, { prefix: 'Analysis' });
-    },
-    complete: (processedCount: number, errorCount: number) => {
-      this.success(
-        `Analysis complete. Processed ${processedCount} files${errorCount > 0 ? `, ${errorCount} errors` : ''}`,
-        { prefix: 'Analysis' }
-      );
-    }
-  };
 
   // Context preparation logging methods
   context = {

@@ -4,6 +4,7 @@ import { RedisCacheManager } from '@/lib/redis-cache-manager';
 import { fetchRepoSize } from '@/lib/github';
 import { apiError, apiSuccess, ErrorCode, isValidRepoSegment } from '@/lib/api-response';
 import { indexRepository } from '@/lib/retrieval';
+import { withRequestId } from '@/lib/request-context';
 
 /**
  * Largest repository we will attempt to ingest, in kilobytes.
@@ -17,7 +18,7 @@ const MAX_REPO_SIZE_KB = Number(process.env.MAX_REPO_SIZE_KB ?? 150_000);
 
 const INGEST_TIMEOUT_MS = 120_000;
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
     try {
         const { username, repo, force_refresh = false } = await req.json();
 
@@ -208,3 +209,9 @@ export async function POST(req: NextRequest) {
         );
     }
 }
+
+/*
+ * Wrapped so `apiSuccess` / `apiError` / `logger` all reach the same request
+ * id without it being threaded through every call site.
+ */
+export const POST = withRequestId(handlePost);

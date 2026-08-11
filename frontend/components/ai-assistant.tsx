@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
+import { ConversationMenu } from "@/components/conversation-menu"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -69,13 +70,19 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
     setMounted(true)
   }, [])
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: `Hi! I'm CodeAtlas, your repository intelligence assistant for [${username}](https://github.com/${username})/[${repo}](https://github.com/${username}/${repo}). Ask me anything about this codebase.`,
-    },
-  ])
+  const greeting: Message = {
+    role: "assistant",
+    content: `Hi! I'm CodeAtlas, your repository intelligence assistant for [${username}](https://github.com/${username})/[${repo}](https://github.com/${username}/${repo}). Ask me anything about this codebase.`,
+  }
+
+  const [messages, setMessages] = useState<Message[]>([greeting])
   const [input, setInput] = useState("")
+  /*
+   * The saved conversation this chat is appending to, or null for one that has
+   * not been saved yet. The server returns it after the first persisted turn —
+   * it is never invented here, because the server re-checks ownership of it.
+   */
+  const [conversationId, setConversationId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -142,6 +149,7 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
             input.includes("Explain file contents of") || input.includes("Explain this file"),
           history,
           stream: true,
+          conversationId,
         }),
       })
 
@@ -194,10 +202,15 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
 
           if (event.type === "chunk") applyChunk(event.text)
           else if (event.type === "error") streamError = event.error
-          else if (event.type === "done" && event.rateLimit) {
-            window.dispatchEvent(
-              new CustomEvent("aiRateLimitUpdate", { detail: event.rateLimit })
-            )
+          else if (event.type === "done") {
+            if (event.rateLimit) {
+              window.dispatchEvent(
+                new CustomEvent("aiRateLimitUpdate", { detail: event.rateLimit })
+              )
+            }
+            // Present only when the turn was persisted; absent for signed-out
+            // visitors and deployments without a database.
+            if (event.conversationId) setConversationId(event.conversationId)
           }
         }
       }
@@ -223,6 +236,37 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
   }
 
   const handleQuickPrompt = (prompt: string) => setInput(prompt)
+
+  /** Start over. The previous conversation stays saved and reachable. */
+  const handleNewConversation = () => {
+    setConversationId(null)
+    setMessages([greeting])
+    setInput("")
+  }
+
+  /** Reopen a saved conversation, replacing what is on screen. */
+  const handleSelectConversation = async (id: string) => {
+    try {
+      const res = await fetch(`/api/conversations/${id}`)
+      const body = await res.json()
+      if (!body.success) return
+
+      setConversationId(body.data.id)
+      setMessages([
+        greeting,
+        ...body.data.messages.map((message: { role: Message["role"]; content: string; createdAt: string }) => ({
+          role: message.role,
+          content: message.content,
+          timestamp: new Date(message.createdAt).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        })),
+      ])
+    } catch {
+      // Leave the current chat untouched rather than half-replacing it.
+    }
+  }
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background border-l border-border">
@@ -259,8 +303,15 @@ export default function AiAssistant({ username, repo }: AiAssistantProps) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <AIRateLimit />
+          <ConversationMenu
+            username={username}
+            repo={repo}
+            activeId={conversationId}
+            onSelect={handleSelectConversation}
+            onNew={handleNewConversation}
+          />
         </div>
       </div>
 

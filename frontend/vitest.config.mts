@@ -9,7 +9,14 @@ process.env.NODE_ENV = "test"
 
 const EVAL_RUN = process.env.VITEST_EVAL === "true"
 
-import { defineConfig } from "vitest/config"
+/*
+ * Integration tests need a live Postgres, so they are not part of the default
+ * run either. `pnpm test` stays offline, free and runnable on a laptop with
+ * nothing else started.
+ */
+const INTEGRATION_RUN = process.env.VITEST_INTEGRATION === "true"
+
+import { configDefaults, defineConfig } from "vitest/config"
 import react from "@vitejs/plugin-react"
 import path from "node:path"
 
@@ -24,9 +31,26 @@ export default defineConfig({
      * makes real, billable model calls — is not part of the default set. Run it
      * deliberately with `VITEST_EVAL=true pnpm test`.
      */
+    /*
+     * One extension-based rule rather than a per-directory list. The list was
+     * three chances to add a test directory and forget to register it, and a
+     * pattern that matches nothing fails silently — the suite just gets smaller,
+     * which is the one kind of test failure nobody notices.
+     */
     include: EVAL_RUN
       ? ["eval/**/*.eval.ts"]
-      : ["lib/**/*.test.ts", "app/**/*.test.ts", "components/**/*.test.tsx"],
+      : INTEGRATION_RUN
+        ? ["**/*.integration.test.ts"]
+        : ["**/*.test.{ts,tsx}"],
+    /*
+     * Integration tests match the default include patterns too, so they have to
+     * be excluded explicitly rather than merely not selected. Extending the
+     * defaults rather than replacing them — dropping `dist`, `.git` and friends
+     * would let build output be collected as tests.
+     */
+    exclude: INTEGRATION_RUN
+      ? configDefaults.exclude
+      : [...configDefaults.exclude, "**/*.integration.test.ts"],
     setupFiles: ["./vitest.setup.ts"],
     // Threads start far faster than forks on Windows; booting a jsdom
     // environment in a forked worker regularly exceeded the default handshake

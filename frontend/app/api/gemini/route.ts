@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchFileContent } from "@/lib/github";
-import { generateWithFallback, streamWithFallback } from "@/lib/gemini";
+import { generateWithFallback, MODEL_NAME, streamWithFallback } from "@/lib/gemini";
 import { logger } from '@/lib/logger';
 import {
   buildPrompt,
@@ -12,10 +12,17 @@ import {
 } from '@/lib/prompt-generator';
 import { RedisCacheManager } from '@/lib/redis-cache-manager';
 import { RateLimiter } from '@/lib/rate-limiter';
-import { getQuotaSubject } from '@/lib/auth';
+import { auth, getQuotaSubject } from '@/lib/auth';
+import { persistTurn } from '@/lib/conversations';
 import { apiError, ErrorCode, isValidRepoSegment } from '@/lib/api-response';
 import { buildRetrievedContext, retrieve } from '@/lib/retrieval';
 import { buildRetrievedPrompt } from '@/lib/prompt-generator';
+import { currentRequestId, withRequestId } from '@/lib/request-context';
+import {
+  answerCacheKey,
+  isCacheableQuestion,
+  type CachedAnswer,
+} from '@/lib/answer-cache';
 
 // Define interfaces for data structures
 interface ContextStats {
@@ -23,7 +30,72 @@ interface ContextStats {
   totalChars: number;
 }
 
-export async function POST(req: Request) {
+/**
+ * This route answers with a bespoke envelope rather than `apiSuccess`, so it
+ * has to attach the correlation id itself — in the body and the header both,
+ * exactly as the shared helpers do.
+ */
+function jsonWithRequestId(body: Record<string, unknown>): NextResponse {
+  const requestId = currentRequestId() ?? crypto.randomUUID();
+  return NextResponse.json({ ...body, requestId }, { headers: { 'x-request-id': requestId } });
+}
+
+/** NDJSON response headers, shared by the live stream and the cached replay. */
+function ndjsonResponse(body: BodyInit): Response {
+  const requestId = currentRequestId();
+  return new Response(body, {
+    headers: {
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      // Stops proxies buffering the response into one delivery.
+      'X-Accel-Buffering': 'no',
+      ...(requestId ? { 'x-request-id': requestId } : {}),
+    },
+  });
+}
+
+/**
+ * Save a completed turn for a signed-in user, if persistence is available.
+ *
+ * Deliberately swallows everything: a database that is down, unconfigured, or
+ * simply not in use must cost the user their history, never their answer. The
+ * answer has already been generated and paid for by the time this runs.
+ */
+async function savePersistedTurn(turn: {
+  username: string;
+  repo: string;
+  query: string;
+  answer: string;
+  tokenCount: number;
+  conversationId?: string;
+}): Promise<string | null> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return null;
+
+    return await persistTurn({
+      githubId: session.user.id,
+      githubLogin: session.user.name ?? undefined,
+      owner: turn.username,
+      repo: turn.repo,
+      conversationId: turn.conversationId,
+      question: turn.query,
+      answer: turn.answer,
+      tokenCount: turn.tokenCount,
+      model: MODEL_NAME,
+    });
+  } catch (error) {
+    logger.error(`Conversation not persisted: ${error}`, { prefix: 'DB' });
+    return null;
+  }
+}
+
+/** Serialise fixed events as NDJSON — used when replaying a cached answer. */
+function ndjson(events: Array<Record<string, unknown>>): Response {
+  return ndjsonResponse(events.map((e) => `${JSON.stringify(e)}\n`).join(''));
+}
+
+async function handlePost(req: Request) {
   // Scoped per request: a module-level handle would be shared across concurrent
   // requests and cleared by whichever finished first.
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -56,7 +128,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { username, repo, query, filePath, fetchOnlyCurrentFile = false, history = [], stream = false } = await req.json();
+    const { username, repo, query, filePath, fetchOnlyCurrentFile = false, history = [], stream = false, conversationId } = await req.json();
 
     // Validate before spending quota. Without this an empty repo/query still
     // reached the model and consumed a request to answer nothing.
@@ -77,6 +149,68 @@ export async function POST(req: Request) {
     }
 
     const repoKey = `${username}/${repo}`;
+
+    /*
+     * Answer cache, checked before anything is spent.
+     *
+     * A hit costs no model call and no quota — the same posture as a cached
+     * analysis. It is only consulted for questions that are a pure function of
+     * (repository, question); follow-ups and file-scoped questions are not.
+     */
+    const cacheable = isCacheableQuestion({
+      query,
+      historyLength: Array.isArray(history) ? history.length : 0,
+      fileScoped: Boolean(filePath && fetchOnlyCurrentFile),
+    });
+    const answerKey = cacheable ? answerCacheKey(username, repo, query) : null;
+
+    if (answerKey) {
+      const hit = await RedisCacheManager.getRaw(answerKey);
+      if (hit) {
+        try {
+          const cached: CachedAnswer = JSON.parse(hit);
+          const rateLimit = await RateLimiter.check(quotaSubject);
+          logger.info(`Answer cache hit for ${repoKey}`, { prefix: 'Cache' });
+
+          /*
+           * A cached answer is still an answer this user received, so it joins
+           * their conversation. Skipping it would make history depend on
+           * whether someone else happened to ask first.
+           */
+          const savedConversationId = await savePersistedTurn({
+            username, repo, query, answer: cached.response,
+            tokenCount: cached.usage.estimatedPromptTokens, conversationId,
+          });
+
+          if (stream) {
+            // Still NDJSON, so a streaming client needs no special case for a
+            // cache hit — it simply arrives all at once.
+            return ndjson([
+              { type: 'chunk', text: cached.response },
+              {
+                type: 'done',
+                rateLimit,
+                usage: cached.usage,
+                cached: true,
+                conversationId: savedConversationId,
+              },
+            ]);
+          }
+
+          return jsonWithRequestId({
+            success: true,
+            response: cached.response,
+            rateLimit,
+            usage: cached.usage,
+            cached: true,
+            conversationId: savedConversationId,
+          });
+        } catch {
+          // A corrupt entry is not worth failing a request over.
+          logger.warn(`Discarding unreadable answer cache entry for ${repoKey}`, { prefix: 'Cache' });
+        }
+      }
+    }
 
     // Set a longer timeout for Vercel
     const controller = new AbortController();
@@ -282,21 +416,33 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
             controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
 
           try {
+            // Accumulated so a streamed answer populates the cache too —
+            // otherwise whether a question is billed twice would depend on
+            // which transport the first caller happened to use.
+            let full = '';
+
             for await (const chunk of streamWithFallback(prompt)) {
+              full += chunk;
               send({ type: 'chunk', text: chunk });
             }
 
             const rateLimit = await RateLimiter.increment(quotaSubject);
-            send({
-              type: 'done',
-              rateLimit,
-              usage: {
-                estimatedPromptTokens: promptTokens,
-                truncated: promptTruncated,
-                historyTurns,
-                retrieval: retrievalUsed ? { used: true, chunks: chunksUsed } : { used: false },
-              },
+            const usage = {
+              estimatedPromptTokens: promptTokens,
+              truncated: promptTruncated,
+              historyTurns,
+              retrieval: retrievalUsed ? { used: true, chunks: chunksUsed } : { used: false },
+            };
+
+            if (answerKey && full) {
+              await RedisCacheManager.saveRaw(answerKey, JSON.stringify({ response: full, usage }));
+            }
+
+            const savedConversationId = await savePersistedTurn({
+              username, repo, query, answer: full, tokenCount: promptTokens, conversationId,
             });
+
+            send({ type: 'done', rateLimit, usage, conversationId: savedConversationId });
           } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown error';
             logger.error(`Streaming failed: ${message}`, { prefix: 'Gemini' });
@@ -308,14 +454,7 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
         },
       });
 
-      return new Response(body, {
-        headers: {
-          'Content-Type': 'application/x-ndjson; charset=utf-8',
-          'Cache-Control': 'no-cache, no-transform',
-          // Stops proxies buffering the response into one delivery.
-          'X-Accel-Buffering': 'no',
-        },
-      });
+      return ndjsonResponse(body);
     }
 
     // Generate response using Gemini (with fallback to secondary key)
@@ -324,17 +463,25 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
     // Increment rate limit counter after successful response
     const rateLimit = await RateLimiter.increment(quotaSubject);
 
+    const usage = {
+      estimatedPromptTokens: promptTokens,
+      truncated: promptTruncated,
+      historyTurns,
+      retrieval: retrievalUsed ? { used: true, chunks: chunksUsed } : { used: false },
+    };
+
+    // Written after the answer succeeded, so a failed generation is never cached.
+    if (answerKey) {
+      await RedisCacheManager.saveRaw(answerKey, JSON.stringify({ response, usage }));
+    }
+
+    const savedConversationId = await savePersistedTurn({
+      username, repo, query, answer: response, tokenCount: promptTokens, conversationId,
+    });
+
     clearTimeout(timeoutId);
-    return NextResponse.json({
-      success: true,
-      response,
-      rateLimit,
-      usage: {
-        estimatedPromptTokens: promptTokens,
-        truncated: promptTruncated,
-        historyTurns,
-        retrieval: retrievalUsed ? { used: true, chunks: chunksUsed } : { used: false },
-      },
+    return jsonWithRequestId({
+      success: true, response, rateLimit, usage, conversationId: savedConversationId,
     });
   } catch (error) {
     clearTimeout(timeoutId);
@@ -369,3 +516,9 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
     );
   }
 }
+
+/*
+ * Wrapped so `apiSuccess` / `apiError` / `logger` all reach the same request
+ * id without it being threaded through every call site.
+ */
+export const POST = withRequestId(handlePost);

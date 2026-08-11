@@ -31,6 +31,9 @@ vi.mock("@/lib/redis-cache-manager", () => ({
   RedisCacheManager: {
     hasCache: vi.fn(async () => true),
     getFromCache: vi.fn(async () => ({ tree: "src/\n  index.ts", content: "console.log(1)" })),
+    // Answer cache: a miss by default, so most tests exercise the generating path.
+    getRaw: vi.fn(async () => null),
+    saveRaw: vi.fn(async () => {}),
   },
 }))
 
@@ -52,6 +55,8 @@ vi.mock("@/lib/github", () => ({
 }))
 
 import { POST } from "./route"
+import { RedisCacheManager } from "@/lib/redis-cache-manager"
+import { generateWithFallback } from "@/lib/gemini"
 import { RateLimiter } from "@/lib/rate-limiter"
 import { buildRetrievedContext, retrieve } from "@/lib/retrieval"
 
@@ -72,6 +77,7 @@ beforeEach(() => {
   vi.mocked(RateLimiter.check).mockResolvedValue({ ...rateLimit })
   vi.mocked(RateLimiter.increment).mockResolvedValue({ ...rateLimit })
   vi.mocked(retrieve).mockResolvedValue({ chunks: [], available: false })
+  vi.mocked(RedisCacheManager.getRaw).mockResolvedValue(null)
 })
 
 describe("POST /api/gemini — validation", () => {
@@ -189,7 +195,124 @@ describe("POST /api/gemini — streaming", () => {
     const res = await POST(post(valid))
     expect(res.headers.get("content-type")).toContain("application/json")
     expect(Object.keys(await res.json()).sort()).toEqual(
-      ["rateLimit", "response", "success", "usage"]
+      ["conversationId", "rateLimit", "requestId", "response", "success", "usage"]
     )
+  })
+})
+
+describe("POST /api/gemini — answer cache", () => {
+  const cached = JSON.stringify({
+    response: "a cached answer",
+    usage: { estimatedPromptTokens: 10, truncated: false, historyTurns: 0, retrieval: { used: false } },
+  })
+
+  it("serves a repeat question without calling the model", async () => {
+    vi.mocked(RedisCacheManager.getRaw).mockResolvedValue(cached)
+
+    const body = await (await POST(post(valid))).json()
+
+    expect(body.response).toBe("a cached answer")
+    expect(body.cached).toBe(true)
+    expect(generateWithFallback).not.toHaveBeenCalled()
+  })
+
+  it("does not charge quota for a cache hit", async () => {
+    vi.mocked(RedisCacheManager.getRaw).mockResolvedValue(cached)
+
+    await POST(post(valid))
+
+    expect(RateLimiter.increment).not.toHaveBeenCalled()
+  })
+
+  it("stores an answer it had to generate", async () => {
+    await POST(post(valid))
+
+    expect(RedisCacheManager.saveRaw).toHaveBeenCalledOnce()
+    const [key, value] = vi.mocked(RedisCacheManager.saveRaw).mock.calls[0]
+    expect(key).toMatch(/^answer:v1:owner:name:/)
+    expect(JSON.parse(value).response).toBe("a grounded answer")
+  })
+
+  it("never caches a follow-up", async () => {
+    // The same words mean different things after different history.
+    await POST(post({ ...valid, history: [{ role: "user", content: "earlier" }] }))
+
+    expect(RedisCacheManager.getRaw).not.toHaveBeenCalled()
+    expect(RedisCacheManager.saveRaw).not.toHaveBeenCalled()
+  })
+
+  it("never caches a file-scoped question", async () => {
+    await POST(post({ ...valid, filePath: "a.ts", fetchOnlyCurrentFile: true }))
+
+    expect(RedisCacheManager.saveRaw).not.toHaveBeenCalled()
+  })
+
+  it("falls back to generating when the cached entry is corrupt", async () => {
+    vi.mocked(RedisCacheManager.getRaw).mockResolvedValue("{not json")
+
+    const body = await (await POST(post(valid))).json()
+
+    expect(body.response).toBe("a grounded answer")
+  })
+
+  it("replays a cached answer as NDJSON when streaming was requested", async () => {
+    // A streaming client must not need a special case for a cache hit.
+    vi.mocked(RedisCacheManager.getRaw).mockResolvedValue(cached)
+
+    const res = await POST(post({ ...valid, stream: true }))
+    expect(res.headers.get("content-type")).toContain("x-ndjson")
+
+    const events = (await res.text())
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => JSON.parse(l))
+    expect(events[0]).toEqual({ type: "chunk", text: "a cached answer" })
+    expect(events.at(-1).type).toBe("done")
+  })
+
+  it("caches an answer that was streamed", async () => {
+    // Otherwise whether a question is billed twice depends on the transport.
+    // The stream must be drained first — `start()` runs as the body is read.
+    await (await POST(post({ ...valid, stream: true }))).text()
+
+    expect(RedisCacheManager.saveRaw).toHaveBeenCalledOnce()
+    expect(JSON.parse(vi.mocked(RedisCacheManager.saveRaw).mock.calls[0][1]).response).toBe(
+      "partial answer"
+    )
+  })
+})
+
+describe("POST /api/gemini — request correlation", () => {
+  it("returns an id on the success envelope and header", async () => {
+    const res = await POST(post(valid))
+    const body = await res.json()
+
+    expect(body.requestId).toEqual(expect.any(String))
+    expect(res.headers.get("x-request-id")).toBe(body.requestId)
+  })
+
+  it("returns an id on a refusal too", async () => {
+    const res = await POST(post({ query: "hi" }))
+    expect((await res.json()).requestId).toEqual(expect.any(String))
+  })
+
+  it("adopts a caller-supplied id so one identifier spans the hop", async () => {
+    const req = new Request("http://localhost/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-request-id": "trace-abc123" },
+      body: JSON.stringify(valid),
+    })
+
+    expect((await (await POST(req)).json()).requestId).toBe("trace-abc123")
+  })
+
+  it("rejects an unreasonable caller id rather than logging it", async () => {
+    const req = new Request("http://localhost/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-request-id": "x".repeat(500) },
+      body: JSON.stringify(valid),
+    })
+
+    expect((await (await POST(req)).json()).requestId).not.toContain("xxxx")
   })
 })

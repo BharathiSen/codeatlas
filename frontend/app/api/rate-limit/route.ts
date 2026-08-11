@@ -3,8 +3,9 @@ import { RateLimiter } from "@/lib/rate-limiter";
 import { getQuotaSubject } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { apiError, ErrorCode } from "@/lib/api-response";
+import { withRequestId } from '@/lib/request-context';
 
-export async function GET(req: Request) {
+async function handleGet(req: Request) {
   try {
     const quotaSubject = await getQuotaSubject(req);
     const rateLimit = await RateLimiter.check(quotaSubject);
@@ -22,3 +23,9 @@ export async function GET(req: Request) {
     );
   }
 }
+
+/*
+ * Wrapped so `apiSuccess` / `apiError` / `logger` all reach the same request
+ * id without it being threaded through every call site.
+ */
+export const GET = withRequestId(handleGet);

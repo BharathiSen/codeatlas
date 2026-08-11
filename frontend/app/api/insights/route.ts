@@ -10,6 +10,7 @@ import {
   estimateTokens,
   MAX_PROMPT_TOKENS,
 } from '@/lib/prompt-generator';
+import { withRequestId } from '@/lib/request-context';
 import {
   buildInsightInstruction,
   insightCacheKey,
@@ -33,7 +34,7 @@ const INSIGHT_TEMPERATURE = 0.2;
 /** Rough size of the framing text wrapped around the repository context. */
 const INSIGHT_OVERHEAD_TOKENS = 1_500;
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   try {
     // Signed-in users get their own budget; anonymous callers share one by address.
     const quotaSubject = await getQuotaSubject(req);
@@ -184,3 +185,9 @@ ${instruction}`;
     return apiError(ErrorCode.GENERATION_FAILED, `Failed to generate analysis: ${message}`, 500);
   }
 }
+
+/*
+ * Wrapped so `apiSuccess` / `apiError` / `logger` all reach the same request
+ * id without it being threaded through every call site.
+ */
+export const POST = withRequestId(handlePost);

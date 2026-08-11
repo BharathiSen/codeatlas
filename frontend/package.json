@@ -2,7 +2,7 @@
   "name": "codeatlas",
   "version": "0.1.0",
   "private": true,
-  "description": "CodeAtlas — an AI-powered Repository Intelligence Platform that turns any repository into navigable, explainable architecture.",
+  "description": "CodeAtlas \u2014 an AI-powered Repository Intelligence Platform that turns any repository into navigable, explainable architecture.",
   "author": "Bharathi",
   "license": "MIT",
   "keywords": [
@@ -20,7 +20,10 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "test:integration": "vitest run"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
@@ -59,11 +62,13 @@
     "chalk": "^5.4.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.2",
     "ioredis": "5.3.2",
     "lucide-react": "^0.454.0",
     "next": "15.3.6",
     "next-auth": "5.0.0-beta.32",
     "next-themes": "^0.4.4",
+    "postgres": "^3.4.9",
     "react": "^19",
     "react-dom": "^19",
     "react-markdown": "^10.1.0",
@@ -86,6 +91,7 @@
     "@typescript-eslint/parser": "^8.26.0",
     "@vitejs/plugin-react": "^6.0.5",
     "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^8.57.1",
     "eslint-config-next": "15.3.6",
     "jsdom": "^30.0.1",

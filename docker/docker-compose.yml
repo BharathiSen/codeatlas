@@ -1,10 +1,11 @@
 # Full CodeAtlas stack. Run from the repository root:
 #   docker compose -f docker/docker-compose.yml --env-file .env up --build
 #
-# Four services: the web app, the ingestion/retrieval backend, Redis (cache and
-# quota) and Qdrant (vector store). Only the web app is published to the host —
-# the rest talk over the compose network, which is why the backend's service
-# token is the boundary that matters rather than port exposure.
+# Five services: the web app, the ingestion/retrieval backend, Redis (cache and
+# quota), Qdrant (vector store) and Postgres (saved conversations). Only the web
+# app is published to the host — the rest talk over the compose network, which is
+# why the backend's service token is the boundary that matters rather than port
+# exposure.
 
 name: codeatlas
 
@@ -25,10 +26,18 @@ services:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       INGEST_SERVICE_TOKEN: ${INGEST_SERVICE_TOKEN:-}
       AI_DAILY_LIMIT: ${AI_DAILY_LIMIT:-20}
+      AI_USER_DAILY_LIMIT: ${AI_USER_DAILY_LIMIT:-100}
+      AUTH_GITHUB_ID: ${AUTH_GITHUB_ID:-}
+      AUTH_GITHUB_SECRET: ${AUTH_GITHUB_SECRET:-}
+      AUTH_SECRET: ${AUTH_SECRET:-}
+      AUTH_TRUST_HOST: "true"
+      DATABASE_URL: postgres://codeatlas:${POSTGRES_PASSWORD:-codeatlas}@postgres:5432/codeatlas
       MAX_REPO_SIZE_KB: ${MAX_REPO_SIZE_KB:-150000}
       MAX_PROMPT_TOKENS: ${MAX_PROMPT_TOKENS:-250000}
     depends_on:
       redis:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
       backend:
         condition: service_started
@@ -68,6 +77,25 @@ services:
       - qdrant-data:/qdrant/storage
     restart: unless-stopped
 
+  # Saved conversations only. The app starts and answers questions without it;
+  # `depends_on` exists so migrations have something to connect to, not because
+  # answering needs a database.
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: codeatlas
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codeatlas}
+      POSTGRES_DB: codeatlas
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codeatlas"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
 volumes:
   redis-data:
   qdrant-data:
+  postgres-data:

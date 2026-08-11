@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { currentRequestId } from './request-context';
 
 /**
  * Machine-readable error codes.
@@ -38,6 +39,8 @@ export interface ApiErrorBody {
   success: false;
   code: ErrorCodeValue;
   error: string;
+  /** Correlates this response with its server-side log lines. */
+  requestId: string;
   /** Optional structured context — never includes secrets. */
   details?: Record<string, unknown>;
 }
@@ -45,11 +48,23 @@ export interface ApiErrorBody {
 export interface ApiSuccessBody<T> {
   success: true;
   data: T;
+  requestId: string;
 }
+
+/**
+ * Echoed as a header too, so the id is reachable without parsing the body —
+ * which matters for the streaming response, where there is no body to parse
+ * until it finishes.
+ */
+const idHeader = (requestId: string) => ({ 'x-request-id': requestId });
 
 /** Success envelope. Extra top-level fields (e.g. `cached`) may be merged in. */
 export function apiSuccess<T>(data: T, extra?: Record<string, unknown>) {
-  return NextResponse.json({ success: true, data, ...extra });
+  const requestId = currentRequestId() ?? crypto.randomUUID();
+  return NextResponse.json(
+    { success: true, data, ...extra, requestId },
+    { headers: idHeader(requestId) }
+  );
 }
 
 /** Error envelope with a stable code and an HTTP status. */
@@ -59,9 +74,10 @@ export function apiError(
   status: number,
   details?: Record<string, unknown>
 ) {
-  const body: ApiErrorBody = { success: false, code, error: message };
+  const requestId = currentRequestId() ?? crypto.randomUUID();
+  const body: ApiErrorBody = { success: false, code, error: message, requestId };
   if (details) body.details = details;
-  return NextResponse.json(body, { status });
+  return NextResponse.json(body, { status, headers: idHeader(requestId) });
 }
 
 

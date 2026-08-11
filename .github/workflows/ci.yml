@@ -27,7 +27,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
@@ -39,6 +39,22 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      # CI discovered 6 of 8 test files once and still reported "all passing":
+      # a suite that silently shrinks is the one kind of failure nobody notices.
+      # Compare what is on disk against what vitest collects, and print both when
+      # they disagree.
+      - name: Verify every test file is discovered
+        run: |
+          set -euo pipefail
+          find app components lib \( -name '*.test.ts' -o -name '*.test.tsx' \) \
+            ! -name '*.integration.test.ts' | sed 's#^\./##' | sort > /tmp/on-disk.txt
+          pnpm exec vitest list --filesOnly | sed 's#^\./##' | sort > /tmp/collected.txt
+          if ! diff -u /tmp/on-disk.txt /tmp/collected.txt; then
+            echo "::error::vitest did not collect every test file on disk"
+            exit 1
+          fi
+          echo "$(wc -l < /tmp/collected.txt) test files, all discovered"
 
       - name: Test
         run: pnpm test
@@ -76,6 +92,62 @@ jobs:
       # against a fake Qdrant and stubbed embeddings, so CI makes no paid calls.
       - name: Test
         run: python -m pytest -q
+
+  persistence:
+    name: Persistence — schema and access control
+    runs-on: ubuntu-latest
+
+    # The properties worth testing here are claims about SQL: that a cascade
+    # cascades, that a unique index makes concurrent upserts safe, and that one
+    # user's id cannot reach another's conversation. A mocked database cannot
+    # show any of them, so this job runs a real one.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: codeatlas
+          POSTGRES_PASSWORD: codeatlas
+          POSTGRES_DB: codeatlas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U codeatlas"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    env:
+      DATABASE_URL: postgres://codeatlas:codeatlas@localhost:5432/codeatlas
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Migrations are checked in, so this also proves they apply cleanly to an
+      # empty database — the thing that breaks a deploy, not a test.
+      - name: Apply migrations
+        run: pnpm db:migrate
+
+      - name: Integration tests
+        run: pnpm test
+        env:
+          VITEST_INTEGRATION: "true"
 
   retrieval-quality:
     name: Retrieval quality — recall@k

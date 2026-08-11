@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { Octokit } from "@octokit/rest";
 import { ErrorCode } from "@/lib/api-response";
+import { withRequestId } from '@/lib/request-context';
 
 // Enhanced cache for storing file contents with LRU-like behavior
 const fileCache = new Map();
@@ -38,7 +39,7 @@ async function fetchWithRetry(fn: () => Promise<any>, attempts = RETRY_ATTEMPTS)
   }
 }
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const path = searchParams.get("path");
   const username = searchParams.get("username");
@@ -186,3 +187,9 @@ export async function GET(request: NextRequest) {
     });
   }
 }
+
+/*
+ * Wrapped so `apiSuccess` / `apiError` / `logger` all reach the same request
+ * id without it being threaded through every call site.
+ */
+export const GET = withRequestId(handleGet);
