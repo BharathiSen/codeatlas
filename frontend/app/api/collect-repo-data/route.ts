@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { after, NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
 import { RedisCacheManager } from '@/lib/redis-cache-manager';
 import { fetchRepoSize } from '@/lib/github';
@@ -196,7 +196,16 @@ async function handlePost(req: NextRequest) {
         // cheap on re-ingestion. Deliberately not awaited: indexing must not add
         // its latency to the user's first page load, and a failure here leaves
         // the whole-repository fallback perfectly usable.
-        void indexRepository(username, repo, data.content).catch(() => undefined);
+        after(async () => {
+          try {
+            await indexRepository(username, repo, data.content);
+          } catch (error) {
+            logger.warn(
+              `Indexing failed for ${username}/${repo}: ${error instanceof Error ? error.message : 'unknown'}`,
+              { prefix: 'Retrieval' }
+            );
+          }
+        });
 
         return apiSuccess(data, { cached: false });
     } catch (error) {
