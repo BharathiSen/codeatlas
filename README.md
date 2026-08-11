@@ -4,7 +4,7 @@
   <h1>CodeAtlas</h1>
 
   <p><strong>An AI-powered Repository Intelligence Platform.</strong><br/>
-  Read a whole codebase the way you'd read a map — not one file at a time.</p>
+  Read a whole codebase the way you'd read a map not one file at a time.</p>
 
   <p>
     <img alt="Next.js 15.3.6" src="https://img.shields.io/badge/Next.js-15.3.6-000?style=flat-square&logo=next.js" />
@@ -21,11 +21,11 @@
 
 Dropping into an unfamiliar repository is archaeology. You open files semi-randomly, guess at module boundaries from directory names, and rebuild the author's intent from identifiers. The understanding you assemble is expensive, private, and gone the moment you switch projects.
 
-Most AI coding tools make this worse, not better. They answer one file at a time, so the questions that actually matter — *how does this fit together, what breaks if I change this, why is it built this way* — are exactly the ones they answer worst.
+Most AI coding tools make this worse, not better. They answer one file at a time, so the questions that actually matter *how does this fit together, what breaks if I change this, why is it built this way* are exactly the ones they answer worst.
 
 ## The approach
 
-CodeAtlas ingests the **entire** repository in one pass — source, tree, documentation — into a single retrievable context, then answers against it.
+CodeAtlas ingests the **entire** repository in one pass — source, tree, documentation into a single retrievable context, then answers against it.
 
 ```
   repository  ──▶  ingest  ──▶  cache  ──▶  ask
@@ -47,7 +47,7 @@ Three properties follow:
 
 | | |
 |---|---|
-| **Whole-repository context** | Full tree and contents ingested in one pass and cached — answers see the project entire |
+| **Whole-repository context** | Full tree and contents ingested in one pass and cached answers see the project entire |
 | **Grounded assistant** | Cites real paths; renders mermaid diagrams for architecture questions |
 | **Three-pane workspace** | Resizable explorer / viewer / assistant, each collapsible |
 | **More than source** | Code, Jupyter notebooks and PDFs all render in place |
@@ -81,7 +81,7 @@ The ingestion service is separate because `gitingest` is a Python library. It's 
 
 ## Quickstart
 
-**You'll need:** Node 18+ with pnpm · Python 3.10+ · a Redis instance · a [Gemini API key](https://aistudio.google.com/app/apikey) · a GitHub PAT (**classic, no scopes ticked** — CodeAtlas only reads public repos, so the token is purely for the higher rate limit).
+**You'll need:** Node 18+ with pnpm · Python 3.10+ · a Redis instance · a [Gemini API key](https://aistudio.google.com/app/apikey) · a GitHub PAT (**classic, no scopes ticked** CodeAtlas only reads public repos, so the token is purely for the higher rate limit).
 
 ```bash
 # 1 — install
