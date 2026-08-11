@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from qdrant_client import AsyncQdrantClient, models
 
 from chunking import Chunk, chunk_repository
-from embeddings import EMBEDDING_DIMENSIONS, embed_query, embed_texts
+from embeddings import embed_query, embed_texts, embedding_dimensions
 
 logger = logging.getLogger(__name__)
 
@@ -72,15 +72,29 @@ class RetrievalService:
         existing = await self._client.get_collections()
         names = {c.name for c in existing.collections}
 
+        dimensions = embedding_dimensions()
+
         if self._collection not in names:
             await self._client.create_collection(
                 collection_name=self._collection,
                 vectors_config=models.VectorParams(
-                    size=EMBEDDING_DIMENSIONS,
+                    size=dimensions,
                     distance=models.Distance.COSINE,
                 ),
             )
-            logger.info("Created collection %s", self._collection)
+            logger.info("Created collection %s at %d dimensions", self._collection, dimensions)
+        else:
+            # Switching embedding provider changes the vector width. Searching a
+            # collection built at another width fails deep inside Qdrant with an
+            # opaque error, so surface it here with the actual fix.
+            info = await self._client.get_collection(self._collection)
+            existing_size = info.config.params.vectors.size
+            if existing_size != dimensions:
+                raise RuntimeError(
+                    f"Collection '{self._collection}' stores {existing_size}-dimensional vectors "
+                    f"but the active embedding provider produces {dimensions}. "
+                    f"Delete the collection and re-index, or set QDRANT_COLLECTION to a new name."
+                )
 
         # `repo` and `file_sha` drive filtering and invalidation; `text` backs the
         # keyword half of hybrid search.

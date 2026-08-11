@@ -76,3 +76,45 @@ jobs:
       # against a fake Qdrant and stubbed embeddings, so CI makes no paid calls.
       - name: Test
         run: python -m pytest -q
+
+  retrieval-quality:
+    name: Retrieval quality — recall@k
+    runs-on: ubuntu-latest
+
+    # Qdrant as a service container. The eval uses the local embedding provider,
+    # so it needs no API key and no secrets — retrieval quality is measured on
+    # every pull request rather than assumed.
+    services:
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          pip install fastembed
+
+      # Cache the ONNX model (~130 MB) so only the first run pays for it.
+      - name: Cache embedding model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/fastembed
+          key: fastembed-bge-small-v1
+
+      - name: Measure retrieval quality
+        working-directory: backend
+        env:
+          EMBEDDING_PROVIDER: local
+          QDRANT_URL: http://localhost:6333
+        run: python -m eval.run_eval
