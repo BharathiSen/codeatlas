@@ -11,7 +11,8 @@ import {
   type GitIngestData,
 } from '@/lib/prompt-generator';
 import { RedisCacheManager } from '@/lib/redis-cache-manager';
-import { getClientIP, RateLimiter } from '@/lib/rate-limiter';
+import { RateLimiter } from '@/lib/rate-limiter';
+import { getQuotaSubject } from '@/lib/auth';
 import { apiError, ErrorCode, isValidRepoSegment } from '@/lib/api-response';
 import { buildRetrievedContext, retrieve } from '@/lib/retrieval';
 import { buildRetrievedPrompt } from '@/lib/prompt-generator';
@@ -28,11 +29,11 @@ export async function POST(req: Request) {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   try {
-    // Get client IP for rate limiting
-    const clientIP = getClientIP(req);
+    // Signed-in users get their own budget; anonymous callers share one by address.
+    const quotaSubject = await getQuotaSubject(req);
 
     // Check rate limit before processing
-    const rateLimitCheck = await RateLimiter.check(clientIP);
+    const rateLimitCheck = await RateLimiter.check(quotaSubject);
     if (!rateLimitCheck.allowed) {
       const resetDate = new Date(rateLimitCheck.resetAt * 1000);
 
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
         );
       }
 
-      logger.warn(`Rate limit exceeded for IP: ${clientIP}`, { prefix: 'RateLimit' });
+      logger.warn(`Rate limit exceeded for ${quotaSubject}`, { prefix: 'RateLimit' });
       return apiError(
         ErrorCode.RATE_LIMITED,
         `Daily limit of ${rateLimitCheck.limit} AI requests reached. Resets at ${resetDate.toLocaleTimeString()}.`,
@@ -285,7 +286,7 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
               send({ type: 'chunk', text: chunk });
             }
 
-            const rateLimit = await RateLimiter.increment(clientIP);
+            const rateLimit = await RateLimiter.increment(quotaSubject);
             send({
               type: 'done',
               rateLimit,
@@ -321,7 +322,7 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
     const response = await generateWithFallback(prompt);
 
     // Increment rate limit counter after successful response
-    const rateLimit = await RateLimiter.increment(clientIP);
+    const rateLimit = await RateLimiter.increment(quotaSubject);
 
     clearTimeout(timeoutId);
     return NextResponse.json({

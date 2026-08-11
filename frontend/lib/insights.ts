@@ -7,9 +7,10 @@
  * them through one code path, so adding an analysis means adding an entry here,
  * never a new route or component.
  *
- * These reuse the Phase 2 context pipeline (cached whole-repository content,
- * trimmed and token-budgeted). They do **not** use semantic retrieval, which
- * does not exist yet — see the notebook's Phase 3 and D-18.
+ * These reuse the budgeted context pipeline (cached whole-repository content,
+ * trimmed to the token budget). They deliberately do **not** use semantic
+ * retrieval: an analysis has to see the whole repository, not its most relevant
+ * excerpts — see D-18.
  */
 
 export type InsightKind =

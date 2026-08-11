@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
 import { RedisCacheManager } from '@/lib/redis-cache-manager';
 import { generateWithFallback } from '@/lib/gemini';
-import { getClientIP, RateLimiter } from '@/lib/rate-limiter';
+import { RateLimiter } from '@/lib/rate-limiter';
+import { getQuotaSubject } from '@/lib/auth';
 import { apiError, apiSuccess, ErrorCode, isValidRepoSegment } from '@/lib/api-response';
 import {
   applyTokenBudget,
@@ -34,9 +35,10 @@ const INSIGHT_OVERHEAD_TOKENS = 1_500;
 
 export async function POST(req: NextRequest) {
   try {
-    const clientIP = getClientIP(req);
+    // Signed-in users get their own budget; anonymous callers share one by address.
+    const quotaSubject = await getQuotaSubject(req);
 
-    const rateLimitCheck = await RateLimiter.check(clientIP);
+    const rateLimitCheck = await RateLimiter.check(quotaSubject);
     if (!rateLimitCheck.allowed) {
       if (rateLimitCheck.degraded) {
         return apiError(
@@ -157,7 +159,7 @@ ${instruction}`;
 
     const record: CachedInsight = { markdown, truncated: budget.truncated };
     await RedisCacheManager.saveRaw(cacheKey, JSON.stringify(record));
-    const rateLimit = await RateLimiter.increment(clientIP);
+    const rateLimit = await RateLimiter.increment(quotaSubject);
 
     return apiSuccess(
       { kind: insightKind, markdown },

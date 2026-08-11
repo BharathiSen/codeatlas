@@ -10,7 +10,7 @@ import { estimateTokens } from '@/lib/prompt-generator';
  * and cannot tell whether it came from a vector search or the whole repository.
  *
  * Every function degrades: if the backend is unreachable, unindexed, or slow,
- * the caller falls back to the Phase 2 whole-repository path. Retrieval makes
+ * the caller falls back to the whole-repository path. Retrieval makes
  * answers better; it must never be the reason there is no answer.
  */
 

@@ -1,5 +1,6 @@
 import { SiteNavbar } from "@/components/site/site-navbar"
 import { SiteFooter } from "@/components/site/site-footer"
+import { AuthControl } from "@/components/site/auth-control"
 
 interface SiteShellProps {
   children: React.ReactNode
@@ -18,7 +19,10 @@ export function SiteShell({ children, withFooter = true }: SiteShellProps) {
         aria-hidden="true"
         className="ca-scanlines pointer-events-none fixed inset-0 z-[100] opacity-50"
       />
-      <SiteNavbar />
+      <SiteNavbar
+        authControl={<AuthControl />}
+        mobileAuthControl={<AuthControl compact />}
+      />
       <main>{children}</main>
       {withFooter && <SiteFooter />}
     </div>

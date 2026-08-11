@@ -12,7 +12,17 @@ import { useGithubStars } from "@/hooks/useGithubStars"
 const REPO_OWNER = process.env.NEXT_PUBLIC_CODEATLAS_REPO_OWNER || ""
 const REPO_NAME = process.env.NEXT_PUBLIC_CODEATLAS_REPO_NAME || ""
 
-export function SiteNavbar() {
+interface SiteNavbarProps {
+  /**
+   * Rendered on the desktop bar; a second copy goes in the mobile sheet. Passed
+   * in rather than imported because the auth control is a server component and
+   * this navbar is a client one.
+   */
+  authControl?: React.ReactNode
+  mobileAuthControl?: React.ReactNode
+}
+
+export function SiteNavbar({ authControl, mobileAuthControl }: SiteNavbarProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const { stars, error: starsError } = useGithubStars(REPO_OWNER, REPO_NAME)
@@ -65,11 +75,8 @@ export function SiteNavbar() {
             </a>
           )}
 
-          {/*
-           * No "Sign in" button: there is no auth system yet (§8, Phase 4).
-           * A control that silently routes somewhere unrelated is worse than no
-           * control — add it back when accounts actually exist.
-           */}
+          {authControl}
+
           <Link
             href="/#map"
             className="ca-btn-gradient rounded-md px-4 py-2 text-[13px] font-semibold"
@@ -112,6 +119,8 @@ export function SiteNavbar() {
           >
             Get started
           </Link>
+
+          {mobileAuthControl && <div className="mt-2">{mobileAuthControl}</div>}
         </div>
       )}
     </header>

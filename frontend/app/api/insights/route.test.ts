@@ -2,8 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const rateLimit = { allowed: true, remaining: 19, limit: 20, resetAt: 0, degraded: false }
 
+vi.mock("@/lib/auth", () => ({
+  // Identity resolution is exercised in lib/auth's own surface; here the
+  // handler only needs a stable subject to key the quota on.
+  getQuotaSubject: async () => "ip:test-ip",
+}))
+
 vi.mock("@/lib/rate-limiter", () => ({
-  getClientIP: () => "test-ip",
   RateLimiter: {
     check: vi.fn(async () => rateLimit),
     increment: vi.fn(async () => rateLimit),
