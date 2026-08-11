@@ -23,7 +23,12 @@ services:
       GITHUB_TOKEN: ${GITHUB_TOKEN:?set GITHUB_TOKEN in .env}
       GITINGEST_API_URL: http://backend:8000
       REDIS_URL: redis://redis:6379
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      # Deliberately NOT interpolated from the root .env. This is the origin the
+      # container calls itself on, and the container listens on 3000 — while the
+      # same variable in .env is pinned to 3001 for `pnpm dev`. Inheriting it here
+      # would point the self-warm request at a port nothing is bound to inside the
+      # container, which fails silently rather than loudly.
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
       INGEST_SERVICE_TOKEN: ${INGEST_SERVICE_TOKEN:-}
       AI_DAILY_LIMIT: ${AI_DAILY_LIMIT:-20}
       AI_USER_DAILY_LIMIT: ${AI_USER_DAILY_LIMIT:-100}

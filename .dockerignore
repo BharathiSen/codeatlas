@@ -1,33 +1,41 @@
-# Node modules
-node_modules
+# Docker reads .dockerignore from the BUILD CONTEXT ROOT, not from the directory
+# holding the Dockerfile. Both compose services build with `context: ..`, so the
+# context root is the repository root and this file must live here. A copy under
+# docker/ is silently ignored — which is exactly how a 652 MB context and a
+# Windows-built node_modules once reached the image (D-34).
+#
+# Patterns are matched against paths relative to the context root, and a bare
+# name is NOT recursive: `node_modules` matches only ./node_modules and would
+# leave frontend/node_modules in the context. Hence `**/`.
 
-# Next.js
-.next
-out
+# Dependencies. These are installed inside the image from the lockfile; copying a
+# host-built tree in would overwrite that install with the wrong platform's
+# binaries and, under pnpm, with symlinks pointing at absolute host paths.
+**/node_modules
+**/.venv
+**/__pycache__
+**/*.pyc
 
-# Build directories
-build
+# Build output. Regenerated in the image; a stale host copy is worse than none.
+**/.next
+**/out
+**/build
+**/*.tsbuildinfo
 
-# Debug logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+# Secrets. Runtime configuration is injected by compose, never baked into a layer.
+**/.env*
 
-# Environment files
-.env*
+# Logs
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.pnpm-debug.log*
 
-# Vercel
-.vercel
-
-# TypeScript build info
-*.tsbuildinfo
-next-env.d.ts
-
-# Git
+# Not needed to build, and large
 .git
 .gitignore
-
-# IDE specific files
+.github
+docs
+.vercel
 .vscode
 .idea
