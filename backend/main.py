@@ -27,6 +27,25 @@ from retrieval import get_service
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
+# httpx logs every outbound request at INFO as `HTTP Request: <method> <url>`, and
+# the Gemini embeddings API takes its credential as a `key` query parameter
+# (embeddings.py). That one line therefore writes a live API key into the log
+# stream — a single 24-chunk repository produced 26 such lines, all readable via
+# `docker logs`.
+#
+# The fix is to stop the client emitting request URLs rather than to redact them
+# downstream: a redaction filter has to keep being correct for every future call
+# site and every log sink, whereas a logger that never emits the URL cannot leak
+# it. The level is pinned on these loggers specifically, so raising the root
+# logger to DEBUG for diagnosis still cannot surface the key.
+#
+# Nothing useful is lost. Errors still propagate — httpx WARNING and ERROR records
+# pass this filter, embeddings.py logs its own retry/failure lines from the
+# response body rather than the request URL, and uvicorn's access log (which
+# carries the inbound request line) is untouched.
+for _noisy in ("httpx", "httpcore"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 app = FastAPI()
 
 # Enable CORS to allow cross-origin requests from the frontend

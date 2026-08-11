@@ -44,9 +44,27 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       backend:
         condition: service_started
     restart: unless-stopped
+
+  # Applies database/migrations, then exits. The web app waits for it to succeed,
+  # so a failed migration stops the deploy rather than letting the app serve
+  # against a schema it does not match. `restart: "no"` matters: this is a task,
+  # and a task that has already succeeded must not be run again on daemon restart.
+  migrate:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: migrate
+    environment:
+      DATABASE_URL: postgres://codeatlas:${POSTGRES_PASSWORD:-codeatlas}@postgres:5432/codeatlas
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
   backend:
     build:

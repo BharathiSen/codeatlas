@@ -17,6 +17,24 @@ COPY frontend/ ./
 RUN pnpm run build
 
 # ---------------------------------------------------------------------------
+# One-shot migration image. Runs to completion before the web app starts, then
+# exits — migrations are a deployment step, not something a serving process does
+# on boot, because N replicas booting together would race on the same schema.
+#
+# It extends `builder` because that is the only stage where drizzle-kit exists.
+# The runner installs --prod deliberately, and shipping a migration toolchain
+# into the long-lived serving image to be used once at deploy time is the wrong
+# trade; reusing builder costs no extra layers because web already builds it.
+#
+# Migrations live at the repository root — drizzle.config.ts writes to
+# `../database/migrations`, relative to the frontend/ working directory — so they
+# sit outside what the builder copies and are brought in explicitly.
+
+FROM builder AS migrate
+COPY database/ /database/
+CMD ["pnpm", "db:migrate"]
+
+# ---------------------------------------------------------------------------
 
 FROM node:18-alpine AS runner
 WORKDIR /app
