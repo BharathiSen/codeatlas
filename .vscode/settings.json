@@ -10,6 +10,7 @@
         "regenerable",
         "rulebook",
         "Rybbit",
+        "uvicorn",
         "venv",
         "vercel"
     ]
