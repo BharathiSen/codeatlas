@@ -36,6 +36,16 @@ services:
       AUTH_GITHUB_SECRET: ${AUTH_GITHUB_SECRET:-}
       AUTH_SECRET: ${AUTH_SECRET:-}
       AUTH_TRUST_HOST: "true"
+      # Pin the public origin in production instead of deriving it from the Host
+      # header. AUTH_TRUST_HOST above is correct only behind a proxy you control;
+      # setting AUTH_URL makes the OAuth callback independent of that header
+      # entirely, which is the safer posture once this is internet-facing.
+      AUTH_URL: ${AUTH_URL:-}
+      # Behind a load balancer the client address arrives in X-Forwarded-For, and
+      # 0 (the default) ignores that header — correct when exposed directly, but it
+      # collapses every anonymous caller into the proxy's single quota bucket once
+      # there is a proxy. Set to the number of trusted hops in production.
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
       DATABASE_URL: postgres://codeatlas:${POSTGRES_PASSWORD:-codeatlas}@postgres:5432/codeatlas
       MAX_REPO_SIZE_KB: ${MAX_REPO_SIZE_KB:-150000}
       MAX_PROMPT_TOKENS: ${MAX_PROMPT_TOKENS:-250000}

@@ -1,11 +1,24 @@
 # CodeAtlas web application.
 # Build from the repository root so the frontend/ directory is in context:
 #   docker build -f docker/Dockerfile -t codeatlas .
+#
+# Node 22 matches CI (`node-version: 22`) and local development. The images ran
+# node:18 until 2026-08-11, which was untested everywhere else and, being past
+# end-of-life, no longer receives security updates. It was also actively limiting:
+# vitest 4 declares `node: ^20 || ^22 || >=24` and could not run inside the image
+# at all. See D-38.
+#
+# pnpm is pinned to the same major CI uses (`pnpm/action-setup` with `version: 10`).
+# It has to be: `npm install -g pnpm` resolves to the newest release the *host Node*
+# supports, so node:18 was silently holding pnpm at 10.x, and moving to node:22
+# would otherwise have pulled pnpm 11 — which turns ignored build scripts into a
+# hard `ERR_PNPM_IGNORED_BUILDS` failure. A Node bump must not smuggle in a package
+# manager major.
 
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10
 
 # Copy manifests first so dependency installation stays cached.
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
@@ -36,10 +49,10 @@ CMD ["pnpm", "db:migrate"]
 
 # ---------------------------------------------------------------------------
 
-FROM node:18-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10
 
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml ./
 COPY --from=builder /app/.next ./.next

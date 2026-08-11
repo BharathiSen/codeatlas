@@ -3,14 +3,13 @@
 # context root is the repository root and this file must live here. A copy under
 # docker/ is silently ignored — which is exactly how a 652 MB context and a
 # Windows-built node_modules once reached the image (D-34).
-#
 # Patterns are matched against paths relative to the context root, and a bare
 # name is NOT recursive: `node_modules` matches only ./node_modules and would
 # leave frontend/node_modules in the context. Hence `**/`.
-
 # Dependencies. These are installed inside the image from the lockfile; copying a
 # host-built tree in would overwrite that install with the wrong platform's
 # binaries and, under pnpm, with symlinks pointing at absolute host paths.
+
 **/node_modules
 **/.venv
 **/__pycache__
