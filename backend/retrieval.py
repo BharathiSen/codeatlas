@@ -33,6 +33,12 @@ logger = logging.getLogger(__name__)
 QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333")
 COLLECTION = os.environ.get("QDRANT_COLLECTION", "codeatlas_chunks")
 
+# Managed Qdrant requires an API key; a local container does not. Empty means
+# "no credential", which is correct for `docker run qdrant/qdrant` and wrong for
+# every hosted cluster — without it the client is rejected with a bare
+# `403 Forbidden` that reads like a networking problem rather than an auth one.
+QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", "").strip()
+
 # RFF constant. 60 is the value from the original paper and is not sensitive.
 _RRF_K = 60
 
@@ -73,7 +79,9 @@ class RetrievalService:
     def __init__(self, url: str = QDRANT_URL, collection: str = COLLECTION) -> None:
         from qdrant_client import AsyncQdrantClient
 
-        self._client = AsyncQdrantClient(url=url)
+        # `api_key=None` rather than "" — the client sends no auth header at all
+        # when unset, which is what an unauthenticated local Qdrant expects.
+        self._client = AsyncQdrantClient(url=url, api_key=QDRANT_API_KEY or None)
         self._collection = collection
         self._ready = False
 
