@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowRight } from "lucide-react"
-import { EnhancedLoading } from "@/components/enhanced-loading"
+import { EnhancedLoading, type LoadingStage } from "@/components/enhanced-loading"
 import { RepoChips } from "@/components/site/repo-chips"
 
 /** Accepts a full GitHub URL or a bare `owner/repo` pair. */
@@ -57,6 +57,82 @@ function messageForFailure(code?: string, serverMessage?: string): string {
 }
 
 /**
+ * The pipeline, as the user sees it. Each entry corresponds to a real step the
+ * backend performs; none of them advance on a timer.
+ */
+const INITIAL_STAGES: LoadingStage[] = [
+  { id: "fetch", label: "Repository fetched", state: "pending" },
+  { id: "process", label: "Source files processed", state: "pending" },
+  { id: "index", label: "Building semantic index", state: "pending" },
+  { id: "ready", label: "Ready for questions", state: "pending" },
+]
+
+/** Human-readable byte size, or undefined when the length is unknown. */
+function formatSize(chars?: number): string | undefined {
+  if (!chars || chars <= 0) return undefined
+  if (chars < 1024) return `${chars} chars`
+  if (chars < 1024 * 1024) return `${Math.round(chars / 1024)} KB`
+  return `${(chars / 1024 / 1024).toFixed(1)} MB`
+}
+
+/** Poll budget: indexing a repository within the size limit finishes well inside this. */
+const INDEX_POLL_TIMEOUT_MS = 45_000
+const INDEX_POLL_INTERVAL_MS = 1_500
+
+/** ~4.5s of "no retrieval service" before concluding there is no index coming. */
+const UNAVAILABLE_POLLS_BEFORE_GIVING_UP = 3
+
+/**
+ * Wait for the semantic index to finish, reporting chunk counts as they arrive.
+ *
+ * Polls a read-only status endpoint rather than guessing. Bounded twice over — a
+ * fixed interval and an overall deadline — because indexing is best-effort:
+ * answering falls back to whole-repository context when the index is missing, so
+ * a slow or absent retrieval service must never trap someone on this screen.
+ * Hitting the deadline is reported honestly rather than shown as success.
+ */
+async function waitForIndex(
+  username: string,
+  repo: string,
+  onProgress: (chunks: number) => void
+): Promise<{ indexed: boolean; chunks: number; available: boolean }> {
+  const deadline = Date.now() + INDEX_POLL_TIMEOUT_MS
+  let last = { indexed: false, chunks: 0, available: false }
+  let unavailableStreak = 0
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(
+        `/api/index-status?username=${encodeURIComponent(username)}&repo=${encodeURIComponent(repo)}`,
+        { cache: "no-store" }
+      )
+      const body = await response.json()
+      if (body?.success && body.data) {
+        last = body.data
+        if (last.indexed) return last
+
+        if (last.available) {
+          unavailableStreak = 0
+          onProgress(last.chunks)
+        } else {
+          // No retrieval service answering. A couple of these are normal while a
+          // free-tier backend wakes, but waiting the full deadline for an index
+          // nobody is building would strand the user on a stage that can never
+          // complete — and answering works without it.
+          if (++unavailableStreak >= UNAVAILABLE_POLLS_BEFORE_GIVING_UP) return last
+        }
+      }
+    } catch {
+      // Transient — keep polling until the deadline rather than failing the run.
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, INDEX_POLL_INTERVAL_MS))
+  }
+
+  return last
+}
+
+/**
  * The hero's primary control: a terminal-style field that ingests a repository
  * and routes to its workspace. Owns the ingestion request and the loading
  * state; the API contract is unchanged from the previous landing page.
@@ -69,10 +145,21 @@ export function CommandBar() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [loadingText, setLoadingText] = useState("Analyzing repository...")
   const [error, setError] = useState<string | null>(null)
+  const [stages, setStages] = useState<LoadingStage[]>(INITIAL_STAGES)
 
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
+
+  /** Advance one stage. Every call site is a real event, never a timer. */
+  const markStage = useCallback(
+    (id: string, state: LoadingStage["state"], detail?: string) => {
+      setStages((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, state, detail: detail ?? s.detail } : s))
+      )
+    },
+    []
+  )
 
   const handleAnalyze = useCallback(async () => {
     const parsed = parseRepoInput(repoUrl)
@@ -90,10 +177,12 @@ export function CommandBar() {
     const { username, repo } = parsed
     setError(null)
     setIsAnalyzing(true)
-    setLoadingText("Fetching repository data...")
+    setStages(INITIAL_STAGES)
+    setLoadingText("Analyzing repository")
 
     try {
-      setLoadingText("Analyzing repository...")
+      markStage("fetch", "active")
+
       const response = await fetch("/api/collect-repo-data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -106,8 +195,32 @@ export function CommandBar() {
         throw new Error(messageForFailure(result?.code, result?.error))
       }
 
-      setLoadingText("Repository analyzed successfully")
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      // Both ticks come from the response we just received, not from elapsed
+      // time: the repository is fetched because the request returned, and the
+      // size is the length of the content it returned.
+      markStage("fetch", "done", result.cached ? "from cache" : undefined)
+      markStage("process", "done", formatSize(result?.data?.content?.length))
+
+      // Indexing runs after the response is sent, so its progress has to be
+      // asked for. `available: false` means no retrieval service configured or
+      // reachable — answering still works through the whole-repository
+      // fallback, so that is a completed pipeline, not a failure.
+      markStage("index", "active")
+      const indexed = await waitForIndex(username, repo, (chunks) =>
+        markStage("index", "active", chunks > 0 ? `${chunks} chunks` : undefined)
+      )
+
+      markStage(
+        "index",
+        "done",
+        indexed.available
+          ? `${indexed.chunks} chunks`
+          : "unavailable — answers use full-repository context"
+      )
+      markStage("ready", "done")
+
+      // Brief pause so the completed checklist is legible rather than a flash.
+      await new Promise((resolve) => setTimeout(resolve, 600))
       router.push(`/${username}/${repo}`)
     } catch (err) {
       // The detail stays in the browser console and the server log; the user
@@ -119,14 +232,18 @@ export function CommandBar() {
           : messageForFailure(undefined, undefined)
       )
       setIsAnalyzing(false)
-      setLoadingText("Analyzing repository...")
+      setLoadingText("Analyzing repository")
+      // Reset the checklist: a half-ticked pipeline left on screen behind an
+      // error implies those steps still hold, and after a failed ingestion they
+      // do not.
+      setStages(INITIAL_STAGES)
     }
-  }, [repoUrl, router])
+  }, [repoUrl, router, markStage])
 
   if (isAnalyzing) {
     return (
       <div className="flex min-h-[220px] w-full max-w-[640px] items-center justify-center">
-        <EnhancedLoading loadingText={loadingText} />
+        <EnhancedLoading loadingText={loadingText} stages={stages} />
       </div>
     )
   }
