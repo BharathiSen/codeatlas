@@ -351,6 +351,8 @@ class RetrievalService:
         ]
 
     async def status(self, repo: str) -> dict:
+        from qdrant_client import models
+
         await self.ensure_collection()
         count = await self._client.count(
             collection_name=self._collection,
