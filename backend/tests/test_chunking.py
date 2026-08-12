@@ -137,6 +137,34 @@ class TestFallbacks:
 
         assert chunks
 
+    def test_parser_lookup_failure_windows_instead_of_raising(self, monkeypatch):
+        """An unavailable parser must degrade, not lose the repository.
+
+        Since 1.x the grammar pack fetches parsers from a GitHub release on first
+        use, so `get_parser` can raise at call time — a 503 or a dropped
+        connection — long after the import succeeded. That once propagated out of
+        `chunk_repository` and failed the entire index. Losing a repository to a
+        transient network error is a far worse outcome than windowed chunks.
+        """
+        import chunking
+
+        monkeypatch.setattr(chunking, "_PARSERS_AVAILABLE", True)
+        monkeypatch.setattr(
+            chunking,
+            "_get_parser",
+            lambda language: (_ for _ in ()).throw(RuntimeError("Peer disconnected")),
+        )
+
+        source = "\n\n".join(
+            f"def function_{i}(a, b):\n    total = a + b + {i}\n    return total"
+            for i in range(12)
+        )
+        chunks = chunk_file("app.py", source)
+
+        assert chunks, "a parser outage must not drop the file"
+        assert all(c.kind == "prose" for c in chunks)
+        assert all(c.language == "python" for c in chunks), "language is still known"
+
 
 class TestFileShaAndIdentity:
     def test_identical_content_hashes_identically(self):

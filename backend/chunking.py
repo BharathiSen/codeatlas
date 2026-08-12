@@ -50,7 +50,18 @@ def _parser_for(language: str):
 
     if not _PARSERS_AVAILABLE:
         return None
-    return _get_parser(language)
+
+    # Obtaining a parser can fail per-language and at call time, not just at
+    # import: since 1.x the grammar pack fetches parsers from a GitHub release on
+    # first use, so a network blip raises DownloadError here. Chunking must
+    # survive that the same way it survives a broken grammar — by windowing the
+    # file — because losing a repository to a transient 503 is not an acceptable
+    # trade for AST-shaped chunks. The caller falls back when this returns None.
+    try:
+        return _get_parser(language)
+    except Exception as exc:
+        logger.warning("Parser unavailable for %s; windowing instead: %s", language, exc)
+        return None
 
 logger = logging.getLogger(__name__)
 
