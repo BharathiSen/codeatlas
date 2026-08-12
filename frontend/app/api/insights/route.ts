@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
 import { RedisCacheManager } from '@/lib/redis-cache-manager';
@@ -23,6 +24,25 @@ import {
  * Analyses run longer and produce more structure than a chat turn, so they get
  * more room to answer. Still bounded — this is a document, not an essay.
  */
+/**
+ * Short digest of the repository content an insight was derived from.
+ *
+ * The cache key was previously `{kind}:{owner}:{repo}` and therefore
+ * content-blind: a repository that changed kept serving the analysis of its old
+ * code until the TTL expired, silently. Including the digest makes a changed
+ * repository a miss and an unchanged one a hit — the behaviour the cache was
+ * always described as having.
+ *
+ * 16 hex characters is 64 bits: far beyond collision risk across one
+ * repository's successive states, and short enough to keep keys readable.
+ *
+ * Lives here rather than in `lib/insights.ts` because that module is imported by
+ * a client component and must stay free of Node builtins.
+ */
+function contentDigest(content: string): string {
+  return createHash('sha256').update(content).digest('hex').slice(0, 16);
+}
+
 const INSIGHT_MAX_OUTPUT_TOKENS = 4096;
 
 /**
@@ -82,7 +102,29 @@ async function handlePost(req: NextRequest) {
 
     const insightKind = kind as InsightKind;
     const repoKey = `${username}/${repo}`;
-    const cacheKey = insightCacheKey(username, repo, insightKind);
+
+    // Repository context comes from the same warm cache the assistant uses, and
+    // is fetched *before* the cache lookup because the cache key is derived from
+    // its content — an analysis of code that has since changed is not a hit.
+    // The cost of that ordering is that a cached insight is unreachable once the
+    // repository cache has expired; both share a TTL, so they generally lapse
+    // together, and the 409 below tells the caller exactly how to recover.
+    const repoData = await RedisCacheManager.getFromCache(username, repo);
+    if (!repoData?.tree || !repoData?.content) {
+      return apiError(
+        ErrorCode.REPO_NOT_FOUND,
+        'This repository has not been ingested yet. Open it from the landing page first.',
+        409
+      );
+    }
+
+    const cacheKey = insightCacheKey(
+      username,
+      repo,
+      insightKind,
+      contentDigest(repoData.content)
+    );
+
 
     // An analysis over an unchanged repository is deterministic enough to reuse,
     // and it is the most expensive thing this product does. Serve it from cache
@@ -102,16 +144,6 @@ async function handlePost(req: NextRequest) {
           logger.warn(`Discarding unparsable cache entry ${cacheKey}`, { prefix: 'Insights' });
         }
       }
-    }
-
-    // Repository context comes from the same warm cache the assistant uses.
-    const repoData = await RedisCacheManager.getFromCache(username, repo);
-    if (!repoData?.tree || !repoData?.content) {
-      return apiError(
-        ErrorCode.REPO_NOT_FOUND,
-        'This repository has not been ingested yet. Open it from the landing page first.',
-        409
-      );
     }
 
     const instruction = buildInsightInstruction(insightKind);

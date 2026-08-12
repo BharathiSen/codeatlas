@@ -22,6 +22,41 @@ function parseRepoInput(value: string): { username: string; repo: string } | nul
 }
 
 /**
+ * Turn a failure into something a person can act on.
+ *
+ * Every backend problem used to surface as the browser's own "Failed to fetch",
+ * which tells a visitor nothing and reads like the product is broken. The two
+ * cases that actually happen on a free deployment — a sleeping backend and an
+ * oversized repository — are recoverable, and saying so is the difference
+ * between "try again in a moment" and "this doesn't work".
+ *
+ * `code` is the machine-readable code from the API envelope; `serverMessage` is
+ * its already-user-facing sentence, which we prefer where it carries specifics
+ * such as the repository's actual size. Nothing internal — URLs, tokens, stack
+ * traces — reaches this text.
+ */
+function messageForFailure(code?: string, serverMessage?: string): string {
+  switch (code) {
+    case "repo_too_large":
+      // Server message names the actual size and limit, which is more useful.
+      return serverMessage ?? "This repository is too large for the current analysis tier."
+    case "upstream_error":
+      return "Starting the analysis engine… This can take a few seconds on the free deployment. Please try again in a moment."
+    case "timeout":
+      return "The repository took too long to analyse. Try a smaller repository."
+    case "quota_unavailable":
+      return "The usage quota service is unavailable, so requests are paused. Please try again shortly."
+    case "rate_limited":
+      return serverMessage ?? "Daily request limit reached. Sign in with GitHub for a larger budget."
+    default:
+      return (
+        serverMessage ??
+        "Repository analysis failed. The analysis service may be waking up, or the repository may exceed the current limit."
+      )
+  }
+}
+
+/**
  * The hero's primary control: a terminal-style field that ingests a repository
  * and routes to its workspace. Owns the ingestion request and the loading
  * state; the API contract is unchanged from the previous landing page.
@@ -68,15 +103,21 @@ export function CommandBar() {
       const result = await response.json()
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Failed to analyze repository")
+        throw new Error(messageForFailure(result?.code, result?.error))
       }
 
       setLoadingText("Repository analyzed successfully")
       await new Promise((resolve) => setTimeout(resolve, 800))
       router.push(`/${username}/${repo}`)
     } catch (err) {
+      // The detail stays in the browser console and the server log; the user
+      // gets a sentence that tells them what to do next.
       console.error("Failed to analyze repository:", err)
-      setError(err instanceof Error ? err.message : "Failed to analyze repository")
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : messageForFailure(undefined, undefined)
+      )
       setIsAnalyzing(false)
       setLoadingText("Analyzing repository...")
     }
@@ -126,9 +167,21 @@ export function CommandBar() {
       </div>
 
       {error && (
-        <p id="command-bar-error" role="alert" className="font-mono text-xs text-destructive">
-          {error}
-        </p>
+        <div id="command-bar-error" role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="font-mono text-xs text-destructive">{error}</p>
+          {/* A sleeping backend is the common case and it fixes itself, so the
+              recovery is one click rather than a re-typed repository. */}
+          <button
+            type="button"
+            onClick={() => {
+              setError(null)
+              void handleAnalyze()
+            }}
+            className="font-mono text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
+          >
+            Retry
+          </button>
+        </div>
       )}
 
       <RepoChips onPick={(repo) => {

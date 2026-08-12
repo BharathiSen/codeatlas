@@ -18,11 +18,39 @@ import re
 from dataclasses import dataclass, field, asdict
 from typing import Iterable
 
-try:
-    from tree_sitter_language_pack import get_parser
-    _PARSERS_AVAILABLE = True
-except Exception:  # pragma: no cover - exercised only when the wheel is missing
-    _PARSERS_AVAILABLE = False
+"""
+Grammar loading is deferred to the first parse rather than done at import.
+
+`main.py` imports this module transitively, and uvicorn imports the whole tree
+*before* it binds a port. On a cold Render Free instance that delay is the
+difference between a served request and a 502 from the edge, because nothing is
+listening yet. Nothing here is needed until a repository is actually chunked, so
+nothing here is loaded until then. See D-41.
+"""
+_get_parser = None
+_PARSERS_AVAILABLE: bool | None = None  # None = not yet attempted
+
+
+def _parser_for(language: str):
+    """A tree-sitter parser for `language`, or None if grammars are unavailable.
+
+    The import is attempted once and the outcome cached, so a missing wheel costs
+    one failed import rather than one per file.
+    """
+    global _get_parser, _PARSERS_AVAILABLE
+
+    if _PARSERS_AVAILABLE is None:
+        try:
+            from tree_sitter_language_pack import get_parser
+
+            _get_parser = get_parser
+            _PARSERS_AVAILABLE = True
+        except Exception:  # pragma: no cover - exercised only when the wheel is missing
+            _PARSERS_AVAILABLE = False
+
+    if not _PARSERS_AVAILABLE:
+        return None
+    return _get_parser(language)
 
 logger = logging.getLogger(__name__)
 
@@ -171,11 +199,14 @@ def chunk_file(path: str, content: str) -> list[Chunk]:
     sha = file_sha(content)
     language = language_for(path)
 
-    if not language or not _PARSERS_AVAILABLE:
-        return _window(content, path, sha, language or "text", "prose")
+    if not language:
+        return _window(content, path, sha, "text", "prose")
+
+    parser = _parser_for(language)
+    if parser is None:
+        return _window(content, path, sha, language, "prose")
 
     try:
-        parser = get_parser(language)
         source = content.encode("utf-8", "replace")
         tree = parser.parse(source)
     except Exception as exc:  # a broken grammar must not lose the file

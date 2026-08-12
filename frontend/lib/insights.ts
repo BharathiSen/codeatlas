@@ -231,9 +231,20 @@ export interface CachedInsight {
  * survives a cache hit — a stale "complete" label on a partial analysis is
  * exactly the kind of quiet inaccuracy this product exists to avoid.
  */
-export function insightCacheKey(username: string, repo: string, kind: InsightKind): string {
-  return `insight:v2:${kind}:${username}:${repo}`
+/**
+ * `contentDigest` is supplied by the caller rather than computed here: this
+ * module is imported by `insights-panel.tsx`, a client component, so it must stay
+ * free of Node builtins. Hashing lives in the route, which is server-only.
+ */
+export function insightCacheKey(
+  username: string,
+  repo: string,
+  kind: InsightKind,
+  contentDigest: string
+): string {
+  return `insight:v3:${kind}:${username}:${repo}:${contentDigest}`
 }
+
 
 /** Assemble the instruction block appended after the repository context. */
 export function buildInsightInstruction(kind: InsightKind): string {

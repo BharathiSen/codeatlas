@@ -18,7 +18,12 @@ import logging
 import os
 from dataclasses import dataclass
 
-from qdrant_client import AsyncQdrantClient, models
+# `qdrant_client` is imported inside the methods that use it, not here. It is the
+# single most expensive import in this service — ~6.4s of the ~8.5s uvicorn spent
+# before binding its port — and main.py pulls this module in at startup.
+# Deferring it opens the port promptly, so a cold Render Free instance stops
+# answering 502 while it wakes. sys.modules caches it, so only the first call
+# pays. See D-41.
 
 from chunking import Chunk, chunk_repository
 from embeddings import embed_query, embed_texts, embedding_dimensions
@@ -30,6 +35,12 @@ COLLECTION = os.environ.get("QDRANT_COLLECTION", "codeatlas_chunks")
 
 # RFF constant. 60 is the value from the original paper and is not sensitive.
 _RRF_K = 60
+
+# Chunks held in flight while indexing. Deliberately a multiple of the embedding
+# batch size rather than a new setting, so `embed_texts` still paces itself
+# between its own sub-batches exactly as before — this bounds memory without
+# touching rate-limit behaviour.
+_INDEX_BATCH_CHUNKS = int(os.environ.get("EMBEDDING_BATCH_SIZE", "8")) * 8
 
 
 @dataclass
@@ -60,12 +71,16 @@ class RetrievalService:
     """Owns the vector store. Nothing above this layer references Qdrant."""
 
     def __init__(self, url: str = QDRANT_URL, collection: str = COLLECTION) -> None:
+        from qdrant_client import AsyncQdrantClient
+
         self._client = AsyncQdrantClient(url=url)
         self._collection = collection
         self._ready = False
 
     async def ensure_collection(self) -> None:
         """Create the collection and its payload indexes once."""
+        from qdrant_client import models
+
         if self._ready:
             return
 
@@ -131,6 +146,8 @@ class RetrievalService:
 
     async def _indexed_shas(self, repo: str) -> dict[str, str]:
         """Map of path -> file_sha already stored for this repository."""
+        from qdrant_client import models
+
         shas: dict[str, str] = {}
         offset = None
 
@@ -162,6 +179,8 @@ class RetrievalService:
         is the dominant cost, so this is the difference between a re-index that
         costs nothing and one that costs the whole repository.
         """
+        from qdrant_client import models
+
         await self.ensure_collection()
 
         chunks = chunk_repository(content)
@@ -211,23 +230,33 @@ class RetrievalService:
                 "chunks": len(chunks),
             }
 
-        texts = [
-            f"{c.path}" + (f" — {c.symbol}" if c.symbol else "") + f"\n\n{c.text}"
-            for c in changed
-        ]
-        vectors = await embed_texts(texts)
+        # Bounded pipeline: embed and upsert one slice at a time, releasing each
+        # slice before starting the next. The previous shape built the complete
+        # texts, vectors and points lists and held all three alive at once, on top
+        # of the repository string still in scope — four representations of the
+        # same content, which is what exhausts a 512 MB instance (D-41).
+        for start in range(0, len(changed), _INDEX_BATCH_CHUNKS):
+            batch = changed[start:start + _INDEX_BATCH_CHUNKS]
 
-        await self._client.upsert(
-            collection_name=self._collection,
-            points=[
-                models.PointStruct(
-                    id=int(chunk.id),
-                    vector=vector,
-                    payload={**chunk.to_payload(), "repo": repo},
-                )
-                for chunk, vector in zip(changed, vectors)
-            ],
-        )
+            texts = [
+                f"{c.path}" + (f" — {c.symbol}" if c.symbol else "") + f"\n\n{c.text}"
+                for c in batch
+            ]
+            vectors = await embed_texts(texts)
+            del texts
+
+            await self._client.upsert(
+                collection_name=self._collection,
+                points=[
+                    models.PointStruct(
+                        id=int(chunk.id),
+                        vector=vector,
+                        payload={**chunk.to_payload(), "repo": repo},
+                    )
+                    for chunk, vector in zip(batch, vectors)
+                ],
+            )
+            del vectors, batch
 
         logger.info(
             "Indexed %s — %d chunks embedded, %d files skipped, %d stale removed",
@@ -244,6 +273,8 @@ class RetrievalService:
 
     async def search(self, repo: str, query: str, *, limit: int = 12) -> list[RetrievedChunk]:
         """Hybrid search: dense + keyword, fused with RRF."""
+        from qdrant_client import models
+
         await self.ensure_collection()
 
         repo_filter = models.Filter(

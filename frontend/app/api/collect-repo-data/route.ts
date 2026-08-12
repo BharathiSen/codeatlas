@@ -14,7 +14,21 @@ import { withRequestId } from '@/lib/request-context';
  * to show for it. Refusing up front costs one cheap metadata call and gives the
  * user an actionable message instead. Default 150 MB.
  */
-const MAX_REPO_SIZE_KB = Number(process.env.MAX_REPO_SIZE_KB ?? 150_000);
+/*
+ * Largest repository we will attempt, in kilobytes.
+ *
+ * The default is sized for the deployment tier, not for what GitHub will serve.
+ * Indexing briefly holds several representations of the same content — the
+ * flattened repository string, its chunks, and each in-flight embedding batch —
+ * so a 512 MB Render Free instance runs out of memory long before the old
+ * 150,000 KB ceiling is reached, and an OOM kill looks like a 502 with no
+ * explanation. 10,000 KB leaves real headroom above the measured ~60 MB
+ * baseline (D-41).
+ *
+ * Raise it via MAX_REPO_SIZE_KB on a larger instance; this is a tier default,
+ * not a product limit.
+ */
+const MAX_REPO_SIZE_KB = Number(process.env.MAX_REPO_SIZE_KB ?? 10_000);
 
 const INGEST_TIMEOUT_MS = 120_000;
 
@@ -77,9 +91,9 @@ async function handlePost(req: NextRequest) {
                 );
                 return apiError(
                     ErrorCode.REPO_TOO_LARGE,
-                    `${username}/${repo} is ${Math.round(sizeKb / 1024)} MB, above the ${Math.round(
+                    `${username}/${repo} is ${Math.round(sizeKb / 1024)} MB, which is too large for the current analysis tier (limit ${Math.round(
                         MAX_REPO_SIZE_KB / 1024
-                    )} MB limit. Try a smaller repository, or ask about a single file instead.`,
+                    )} MB). Try a smaller repository, or ask about a single file instead.`,
                     413,
                     { sizeKb, limitKb: MAX_REPO_SIZE_KB }
                 );
