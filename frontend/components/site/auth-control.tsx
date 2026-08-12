@@ -1,5 +1,5 @@
 import { Github, LogOut } from "lucide-react"
-import { auth, isAuthConfigured, signIn, signOut } from "@/lib/auth"
+import { auth, signIn, signOut } from "@/lib/auth"
 
 /**
  * Sign-in / sign-out control.
@@ -9,14 +9,23 @@ import { auth, isAuthConfigured, signIn, signOut } from "@/lib/auth"
  * the correct state on the first paint rather than flickering from signed-out to
  * signed-in.
  *
- * Signing in is optional everywhere. It buys a private request budget instead of
- * the shared anonymous one — nothing in the product is gated behind it — so when
- * GitHub credentials are absent this renders nothing at all rather than offering
- * a button that can only fail.
+ * Signing in is optional everywhere — it buys a private request budget instead of
+ * the shared anonymous one, and nothing in the product is gated behind it.
+ *
+ * This used to return `null` unless `isAuthConfigured()` saw both GitHub
+ * credentials, so an unconfigured deployment would not offer a button that could
+ * only fail. That gate was removed: its failure mode is that the control vanishes
+ * with no signal anywhere — no error, no log, no empty state — which is
+ * indistinguishable from the feature never having been built, and it cost a long
+ * production debugging session to find. A button that errors when clicked is
+ * worse UX than one that works; a button that silently does not exist is worse
+ * than both, because nobody can tell it is missing on purpose.
+ *
+ * The equivalent check still guards `/api/auth/*` in that route handler, which is
+ * where it actually matters — an unconfigured deployment answers 404 there rather
+ * than 500.
  */
 export async function AuthControl({ compact = false }: { compact?: boolean }) {
-  if (!isAuthConfigured()) return null
-
   const session = await auth()
 
   const buttonClass = compact
@@ -53,7 +62,7 @@ export async function AuthControl({ compact = false }: { compact?: boolean }) {
     >
       <button type="submit" className={buttonClass}>
         <Github className="h-3.5 w-3.5" aria-hidden="true" />
-        Sign in
+        <span className="whitespace-nowrap">Sign in with GitHub</span>
       </button>
     </form>
   )
