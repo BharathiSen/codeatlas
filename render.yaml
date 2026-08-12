@@ -42,6 +42,13 @@
 #   1. Provision codeatlas-postgres (apply this blueprint, or create it first).
 #   2. Copy its EXTERNAL connection string from the Render dashboard. The
 #      internal URL only resolves inside Render's network.
+#
+#      IT MUST CARRY `?sslmode=require`. Render Postgres refuses non-TLS
+#      connections, and drizzle.config.ts passes no TLS options of its own — it
+#      hands the URL straight to postgres.js. Without the parameter the connect
+#      fails and drizzle-kit's progress spinner swallows the error, so the run
+#      reports only `exit code 1` with no cause. Verified on the first real
+#      deployment: identical command, sslmode appended, migrations applied.
 #   3. From the repository's frontend/ directory, with the URL supplied in the
 #      shell — never written to a file, never committed:
 #
