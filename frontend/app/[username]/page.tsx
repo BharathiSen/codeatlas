@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -41,24 +42,34 @@ export default function UserProfilePage() {
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchUserData() {
       try {
-        const [profileRes, reposRes] = await Promise.all([
-          fetch(`https://api.github.com/users/${username}`),
-          fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=100`)
-        ])
+        /*
+         * Through our own server, not api.github.com directly. The browser has no
+         * GitHub token, so a direct call is unauthenticated and capped at 60
+         * requests per hour per IP — which any shared or cloud address exhausts,
+         * turning this page into "Failed to load profile" for reasons no visitor
+         * could diagnose. The server has the token and gets 5,000/hour.
+         */
+        const response = await fetch(
+          `/api/github-user?username=${encodeURIComponent(username)}`
+        )
+        const body = await response.json()
 
-        if (!profileRes.ok || !reposRes.ok) throw new Error('Failed to fetch data')
+        if (!response.ok || !body.success) {
+          throw new Error(body?.error || 'Could not load this profile.')
+        }
 
-        const profileData = await profileRes.json()
-        const reposData = await reposRes.json()
-
-        setProfile(profileData)
-        setRepositories(reposData)
+        setProfile(body.data.profile)
+        setRepositories(body.data.repositories)
       } catch (error) {
         console.error('Error fetching user data:', error)
+        setLoadError(
+          error instanceof Error ? error.message : 'Could not load this profile.'
+        )
       } finally {
         setIsLoading(false)
       }
@@ -85,8 +96,17 @@ export default function UserProfilePage() {
   if (!profile) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-center text-muted-foreground">
-          <p>Failed to load profile</p>
+        <div className="max-w-md space-y-4 px-6 text-center">
+          <p className="font-mono text-sm text-foreground">
+            {loadError ?? 'Could not load this profile.'}
+          </p>
+          {/* Never a dead end: the profile is optional, the product is not. */}
+          <Link
+            href="/"
+            className="inline-block font-mono text-xs text-primary underline underline-offset-4 hover:text-foreground"
+          >
+            Back to CodeAtlas
+          </Link>
         </div>
       </div>
     )
@@ -95,14 +115,28 @@ export default function UserProfilePage() {
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
       <div className="max-w-7xl mx-auto">
-        <Button
-          onClick={() => window.history.back()}
-          variant="outline"
-          size="sm"
-          className="mb-6 bg-card border-border hover:bg-secondary text-muted-foreground"
-        >
-          ← Back
-        </Button>
+        {/*
+          Back plus an explicit home link. `history.back()` is only meaningful
+          when there is history — someone opening a profile URL directly, which
+          is exactly what the workspace breadcrumb encourages, would otherwise
+          find a button that does nothing.
+        */}
+        <div className="mb-6 flex items-center gap-3">
+          <Button
+            onClick={() => window.history.back()}
+            variant="outline"
+            size="sm"
+            className="bg-card border-border hover:bg-secondary text-muted-foreground"
+          >
+            ← Back
+          </Button>
+          <Link
+            href="/"
+            className="font-mono text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-primary"
+          >
+            CodeAtlas home
+          </Link>
+        </div>
         {/* Profile Header */}
         <div className="flex flex-col md:flex-row gap-6 items-start mb-8">
           <div className="relative group">

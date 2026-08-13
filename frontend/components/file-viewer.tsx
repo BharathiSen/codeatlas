@@ -339,14 +339,44 @@ export default function FileViewer({ repoData }: FileViewerProps) {
             )}
           </div>
         )
-      default:
+      default: {
+        /*
+         * Source files render with a line-number gutter, because a citation like
+         * `lib/index.js:97` is only useful if line 97 can be found by looking.
+         *
+         * Two details matter. The gutter is `select-none`, so copying the file
+         * copies the code and not the numbers. And the content is `whitespace-pre`
+         * rather than `pre-wrap`: a wrapped long line occupies two rows while its
+         * number occupies one, which silently desynchronises the gutter from the
+         * code — the numbers would be wrong exactly where the line is interesting.
+         * Long lines scroll horizontally instead.
+         */
+        const lines = fileContent.split("\n")
+        const gutterWidth = `${String(lines.length).length + 1}ch`
+
         return (
           <div className="p-4 bg-card rounded-lg">
-            <pre className="text-sm font-mono whitespace-pre-wrap overflow-x-auto text-muted-foreground">
-              <code className="language-text">{fileContent}</code>
+            <pre className="overflow-x-auto font-mono text-sm leading-relaxed">
+              <code className="language-text block">
+                {lines.map((line, index) => (
+                  <span key={index} className="flex">
+                    <span
+                      aria-hidden="true"
+                      className="flex-none select-none pr-4 text-right tabular-nums text-faint"
+                      style={{ width: gutterWidth }}
+                    >
+                      {index + 1}
+                    </span>
+                    <span className="whitespace-pre text-muted-foreground">
+                      {line || " "}
+                    </span>
+                  </span>
+                ))}
+              </code>
             </pre>
           </div>
         )
+      }
     }
   }
 

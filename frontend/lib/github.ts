@@ -284,6 +284,50 @@ export async function fetchRepoSize(owner: string, repo: string): Promise<RepoSi
   };
 }
 
+/**
+ * A user's public profile and their most recently updated repositories.
+ *
+ * Server-side on purpose. The profile page previously called api.github.com
+ * straight from the browser, which is unauthenticated and therefore capped at 60
+ * requests per hour **per IP** — shared and cloud addresses exhaust that almost
+ * immediately, and the page rendered "Failed to load profile" with no clue why.
+ * Routed through the token here, the same call gets 5,000/hour, and the token
+ * never leaves the server.
+ */
+export async function fetchUserProfile(username: string) {
+  await initializeGitHubClient();
+
+  const [profile, repos] = await Promise.all([
+    octokit.users.getByUsername({ username }),
+    octokit.repos.listForUser({ username, sort: 'updated', per_page: 100 }),
+  ]);
+
+  return {
+    profile: {
+      login: profile.data.login,
+      name: profile.data.name,
+      avatar_url: profile.data.avatar_url,
+      bio: profile.data.bio,
+      location: profile.data.location,
+      blog: profile.data.blog,
+      followers: profile.data.followers,
+      following: profile.data.following,
+      public_repos: profile.data.public_repos,
+      created_at: profile.data.created_at,
+    },
+    repositories: repos.data.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      stargazers_count: r.stargazers_count ?? 0,
+      forks_count: r.forks_count ?? 0,
+      language: r.language,
+      updated_at: r.updated_at,
+      html_url: r.html_url,
+    })),
+  };
+}
+
 export async function fetchDirectoryContents(owner: string, repo: string, path: string, fetchContent = false, depth = 0, maxDepth = 2): Promise<FileNode[]> {
   try {
     // Exported entry point: ensure the client exists before any octokit call.

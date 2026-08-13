@@ -11,6 +11,7 @@ import {
   FileText,
   Folder,
   FolderOpen,
+  Home,
   Image as ImageIcon,
   Package,
   Search,
@@ -217,6 +218,18 @@ export default function FileExplorer({ repoData }: FileExplorerProps) {
     <div className="flex h-full flex-col bg-background">
       <div className="flex-none border-b border-border p-3">
         <div className="mb-3 flex items-center gap-1 truncate font-mono text-sm">
+          {/*
+            The workspace is reachable directly by URL, so it needs its own way
+            back — there was none, which left anyone who landed here with only
+            the browser's back button.
+          */}
+          <Link
+            href="/"
+            aria-label="Back to CodeAtlas home"
+            className="mr-1 flex-none text-muted-foreground transition-colors hover:text-primary"
+          >
+            <Home className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
           <Link href={`/${username}`} className="text-primary hover:underline">
             {username}
           </Link>
