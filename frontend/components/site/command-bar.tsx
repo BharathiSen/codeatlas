@@ -86,6 +86,15 @@ const INDEX_POLL_INTERVAL_MS = 1_500
 const UNAVAILABLE_POLLS_BEFORE_GIVING_UP = 3
 
 /**
+ * How long to wait before the single automatic retry of a cold analysis service.
+ *
+ * The first request is what wakes it; a sleeping instance needs roughly this long
+ * to bind its port and start answering. Long enough to be worth waiting for,
+ * short enough that a genuinely broken backend still reports quickly.
+ */
+const COLD_START_RETRY_MS = 20_000
+
+/**
  * Wait for the semantic index to finish, reporting chunk counts as they arrive.
  *
  * Polls a read-only status endpoint rather than guessing. Bounded twice over — a
@@ -186,13 +195,33 @@ export function CommandBar() {
     try {
       markStage("fetch", "active")
 
-      const response = await fetch("/api/collect-repo-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, repo, force_refresh: true }),
-      })
+      const ingest = async () => {
+        const response = await fetch("/api/collect-repo-data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, repo, force_refresh: true }),
+        })
+        return { response, result: await response.json() }
+      }
 
-      const result = await response.json()
+      let { response, result } = await ingest()
+
+      /*
+       * A sleeping analysis service is transient and self-healing, so the app
+       * waits for it rather than handing the visitor a red error and a Retry
+       * button for a condition that resolves itself. The first request is what
+       * wakes the service; the retry is the one that succeeds.
+       *
+       * Exactly one retry, and only for `upstream_error` — a genuinely broken
+       * backend, an oversized repository or an exhausted quota all still surface
+       * immediately, because none of those improve by waiting.
+       */
+      if ((!response.ok || !result?.success) && result?.code === "upstream_error") {
+        setLoadingText("Starting analysis engine")
+        await new Promise((resolve) => setTimeout(resolve, COLD_START_RETRY_MS))
+        setLoadingText("Analyzing repository")
+        ;({ response, result } = await ingest())
+      }
 
       if (!response.ok || !result.success) {
         throw new Error(messageForFailure(result?.code, result?.error))
