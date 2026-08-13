@@ -41,7 +41,10 @@ function messageForFailure(code?: string, serverMessage?: string): string {
       // Server message names the actual size and limit, which is more useful.
       return serverMessage ?? "This repository is too large for the current analysis tier."
     case "upstream_error":
-      return "Starting the analysis engine… This can take a few seconds on the free deployment. Please try again in a moment."
+      // Short and neutral. This is nearly always a cold analysis service rather
+      // than a fault, so it should read as "not yet" and not as a stack trace —
+      // and it should not volunteer anything about the hosting tier.
+      return "Analysis engine is starting. Try again in a moment."
     case "timeout":
       return "The repository took too long to analyse. Try a smaller repository."
     case "quota_unavailable":
