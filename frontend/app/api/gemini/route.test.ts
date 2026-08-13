@@ -143,9 +143,28 @@ describe("POST /api/gemini — success envelope", () => {
     expect(body.usage.estimatedPromptTokens).toBeGreaterThan(0)
   })
 
-  it("reports that retrieval was not used when no index exists", async () => {
+  it("reports that retrieval was not used when the service is unreachable", async () => {
+    vi.mocked(retrieve).mockResolvedValue({
+      chunks: [], available: false, reason: "unavailable",
+    })
+
     const body = await (await POST(post(valid))).json()
-    expect(body.usage.retrieval).toEqual({ used: false })
+    expect(body.usage.retrieval).toEqual({ used: false, reason: "unavailable" })
+  })
+
+  it("distinguishes an un-indexed repository from a broken retrieval service", async () => {
+    /*
+     * Both degrade to whole-repository context, deliberately — but they mean
+     * completely different things to whoever is reading the logs. Conflating
+     * them is how retrieval stayed silently broken in production (D-42).
+     */
+    vi.mocked(retrieve).mockResolvedValue({
+      chunks: [], available: false, reason: "no_matches",
+    })
+
+    const body = await (await POST(post(valid))).json()
+    expect(body.usage.retrieval).toEqual({ used: false, reason: "no_matches" })
+    expect(body.success).toBe(true) // still answers — the fallback is not a failure
   })
 
   it("reports retrieval when the index answers", async () => {

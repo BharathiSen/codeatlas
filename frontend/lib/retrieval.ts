@@ -37,10 +37,24 @@ export interface RetrievedChunk {
   score: number;
 }
 
+/**
+ * Why an answer fell back to whole-repository context.
+ *
+ * `unavailable` means the retrieval service could not be reached or errored —
+ * an infrastructure problem. `no_matches` means it answered normally and had
+ * nothing to return, which is what an un-indexed repository looks like. Both
+ * degrade identically, and that is deliberate; but they call for completely
+ * different responses from whoever is reading the logs, and until now they were
+ * indistinguishable.
+ */
+export type RetrievalFallbackReason = 'unavailable' | 'no_matches';
+
 export interface RetrievalResult {
   chunks: RetrievedChunk[];
   /** False when retrieval was unavailable and the caller should fall back. */
   available: boolean;
+  /** Set only when `available` is false. */
+  reason?: RetrievalFallbackReason;
 }
 
 async function post<T>(path: string, body: unknown, timeoutMs: number): Promise<T | null> {
@@ -112,8 +126,14 @@ export async function retrieve(
     SEARCH_TIMEOUT_MS
   );
 
-  if (!result?.success || !result.data?.chunks?.length) {
-    return { chunks: [], available: false };
+  // Same degradation as before — only the reason is new, so the caller can tell
+  // "the service is down" from "this repository is not indexed".
+  if (!result?.success) {
+    return { chunks: [], available: false, reason: 'unavailable' };
+  }
+
+  if (!result.data?.chunks?.length) {
+    return { chunks: [], available: false, reason: 'no_matches' };
   }
 
   return { chunks: result.data.chunks, available: true };

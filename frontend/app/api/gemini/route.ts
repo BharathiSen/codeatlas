@@ -224,6 +224,16 @@ async function handlePost(req: Request) {
     let historyTurns = 0;
     let retrievalUsed = false;
     let chunksUsed = 0;
+    /*
+     * Why the whole-repository fallback was taken, surfaced on the response.
+     *
+     * The fallback is deliberate and must never become an error — but it was
+     * also invisible: a deployment whose retrieval had silently stopped working
+     * kept answering, and reported only `used: false`, which is equally
+     * consistent with "not indexed yet". That ambiguity is how Qdrant went
+     * unauthenticated in production without anyone noticing (D-42).
+     */
+    let retrievalFallbackReason: string | undefined;
     let contextStats: ContextStats = { files: 0, totalChars: 0 };
 
     // Start context preparation
@@ -312,6 +322,11 @@ Provide a detailed, technical response that directly addresses the user's query 
                 { prefix: 'Retrieval' }
               );
             } else {
+              retrievalFallbackReason = retrieved.reason ?? 'unavailable';
+              logger.info(
+                `Falling back to whole-repository context for ${repoKey} (${retrievalFallbackReason})`,
+                { prefix: 'Retrieval' }
+              );
               const built = await buildPrompt(query, history as ConversationMessage[], repoData.tree, repoData.content);
               prompt = built.prompt;
               promptTokens = built.estimatedTokens;
@@ -431,7 +446,9 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
               estimatedPromptTokens: promptTokens,
               truncated: promptTruncated,
               historyTurns,
-              retrieval: retrievalUsed ? { used: true, chunks: chunksUsed } : { used: false },
+              retrieval: retrievalUsed
+        ? { used: true, chunks: chunksUsed }
+        : { used: false, reason: retrievalFallbackReason ?? 'unavailable' },
             };
 
             if (answerKey && full) {
@@ -467,7 +484,9 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
       estimatedPromptTokens: promptTokens,
       truncated: promptTruncated,
       historyTurns,
-      retrieval: retrievalUsed ? { used: true, chunks: chunksUsed } : { used: false },
+      retrieval: retrievalUsed
+        ? { used: true, chunks: chunksUsed }
+        : { used: false, reason: retrievalFallbackReason ?? 'unavailable' },
     };
 
     // Written after the answer succeeded, so a failed generation is never cached.

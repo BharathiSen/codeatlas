@@ -336,6 +336,24 @@ class RetrievalService:
 
         ordered = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:limit]
 
+        # Which arm actually contributed is otherwise invisible: silencing httpx
+        # (D-36) removed the request log that used to reveal it, and a fused score
+        # cannot be attributed after the fact. `overlap` is the count of chunks
+        # both arms found — when keyword returns 0, RRF is arithmetically just the
+        # dense ranking, which is the normal case for natural-language questions
+        # (L12) and worth being able to see rather than infer.
+        dense_ids = {hit.id for hit in dense_hits}
+        keyword_ids = {hit.id for hit in keyword_hits}
+        logger.info(
+            "Search %s — dense=%d keyword=%d overlap=%d fused=%d returned=%d",
+            repo,
+            len(dense_ids),
+            len(keyword_ids),
+            len(dense_ids & keyword_ids),
+            len(scores),
+            len(ordered),
+        )
+
         return [
             RetrievedChunk(
                 path=payloads[pid].get("path", ""),
