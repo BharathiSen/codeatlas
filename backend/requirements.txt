@@ -6,6 +6,11 @@ httpx>=0.27.0
 pydantic>=2.8.0
 qdrant-client>=1.9
 tree-sitter>=0.23
-tree-sitter-language-pack>=0.9
+# Pinned below 1.0 deliberately. The 0.x line ships grammars as binaries inside
+# the wheel; 1.x fetches them from a GitHub release on first use, which turns
+# chunking into a network operation — it broke CI with a 503 and would make a
+# cold container's first parse depend on GitHub being up (D-43). Verified:
+# 0.13.0 loads all 12 languages offline and passes the full backend suite.
+tree-sitter-language-pack>=0.13,<1.0
 python-dotenv>=1.0
 fastembed>=0.4  # optional: EMBEDDING_PROVIDER=local

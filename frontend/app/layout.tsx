@@ -1,34 +1,58 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Bricolage_Grotesque, IBM_Plex_Sans, JetBrains_Mono } from "next/font/google"
+import localFont from "next/font/local"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Analytics } from "@vercel/analytics/react"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import Script from "next/script"
 
+/*
+ * Fonts are served from this repository, not fetched from Google at build time.
+ *
+ * `next/font/google` downloads each face during `next build`, which makes the
+ * build depend on a third party being reachable — CI failed with
+ * `NextFontError: Failed to fetch 'IBM Plex Sans' from Google Fonts` on a runner
+ * network blip, and a build that fails for reasons unrelated to the code is a
+ * build nobody trusts. The files below are the identical latin woff2 subsets
+ * Next would have fetched (D-43).
+ *
+ * It also removes a third-party request from the critical path for every
+ * visitor: no DNS, TLS and round trip to fonts.gstatic.com before text renders.
+ */
+
 // Body copy and UI.
-const ibmPlexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
+const ibmPlexSans = localFont({
   variable: "--font-sans",
-  weight: ["400", "500", "600"],
   display: "swap",
+  src: [
+    { path: "./fonts/IBMPlexSans-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/IBMPlexSans-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/IBMPlexSans-600.woff2", weight: "600", style: "normal" },
+  ],
 })
 
 // Display face for headings and the wordmark.
-const bricolage = Bricolage_Grotesque({
-  subsets: ["latin"],
+const bricolage = localFont({
   variable: "--font-head",
-  weight: ["400", "600", "700", "800"],
   display: "swap",
+  src: [
+    { path: "./fonts/BricolageGrotesque-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/BricolageGrotesque-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/BricolageGrotesque-700.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/BricolageGrotesque-800.woff2", weight: "800", style: "normal" },
+  ],
 })
 
 // Every code path, identifier, metric and label.
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
+const jetbrainsMono = localFont({
   variable: "--font-mono",
-  weight: ["400", "500", "600"],
   display: "swap",
+  src: [
+    { path: "./fonts/JetBrainsMono-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/JetBrainsMono-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/JetBrainsMono-600.woff2", weight: "600", style: "normal" },
+  ],
 })
 
 export const metadata: Metadata = {
