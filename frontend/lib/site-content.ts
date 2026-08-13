@@ -97,11 +97,23 @@ export const PLATFORM_POINTS: { id: string; title: string; icon: string; body: s
   },
 ]
 
+/*
+ * Repositories offered as one-click examples.
+ *
+ * Every entry must sit under MAX_REPO_SIZE_KB (10,000 KB by default), or the
+ * chip hands the visitor a refusal instead of a demo. The previous list —
+ * next.js, react, kubernetes, fastapi — measured 2,531,398 / 1,064,330 /
+ * 1,510,599 / 53,301 KB respectively, so all four were rejected the moment the
+ * ceiling was sized for the deployment tier (D-41).
+ *
+ * Chosen for a mix of languages, so tree-sitter's breadth is visible rather than
+ * asserted, and for names a reviewer is likely to recognise.
+ */
 export const EXAMPLE_REPOS = [
-  "vercel/next.js",
-  "facebook/react",
-  "fastapi/fastapi",
-  "kubernetes/kubernetes",
+  "expressjs/cors", // 243 KB — JavaScript
+  "chalk/chalk", // 1,093 KB — TypeScript
+  "tiangolo/typer", // 4,068 KB — Python
+  "pallets/click", // 5,217 KB — Python
 ]
 
 export const PIPELINE_STEPS: PipelineStep[] = [
