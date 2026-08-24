@@ -39,9 +39,6 @@ Three properties follow:
 - **Whole-system by default.** The unit of understanding is the repository, not the file.
 - **Degrades instead of failing.** Vector store unavailable → falls back to whole-repository context. Database absent → conversations stop persisting, everything else works. Retrieval improves answers; it is never the reason there is no answer.
 
-> [!NOTE]
-> **Early and honest.** [`docs/ENGINEERING_NOTEBOOK.md`](docs/ENGINEERING_NOTEBOOK.md) is the source of truth for design, decisions and **six open limitations** — including measurements of where this doesn't work well yet. Read it before contributing.
-
 ---
 
 ## What's in the box
@@ -78,8 +75,6 @@ Boundaries worth knowing:
 - `/ingest/`, `/index/` and `/search/` spend money, so they sit behind an `x-service-token` shared secret. That is defence-in-depth locally, where nothing is published, and the *only* control once the backend has a public URL.
 - The quota **fails closed**. If Redis is unreachable, requests are refused with `503 quota_unavailable` rather than run without an enforceable ceiling — unbounded spend in front of a paid API is worse than downtime.
 - Answer caching is deliberately conservative: follow-ups and file-scoped questions are excluded, because a confidently wrong cached answer is a worse trade than the call it saves.
-
-Full detail — request sequences, retrieval design, and every decision with its tradeoff — is in the [engineering notebook](docs/ENGINEERING_NOTEBOOK.md#3-current-architecture).
 
 ---
 
@@ -216,7 +211,7 @@ Measured, not guessed — the notebook carries the evidence for each:
 - **Structured logging, not observability.** Request-id correlation exists; metrics, traces and error reporting do not.
 - **Public repositories only.** OAuth requests `read:user` and nothing more, deliberately.
 - **Indexing is synchronous within one request**, with no queue, retry or progress surfaced.
-- An **unconfirmed intermittent test failure** is documented rather than papered over.
+- **The vector store is external and has its own lifecycle.** Render has no managed vector database, so Qdrant Cloud sits outside the blueprint and outside every CI gate — nothing in this repository can tell you the cluster still exists. Losing it is survivable and therefore quiet: retrieval degrades to whole-repository context and answers keep coming, reported per request as `usage.retrieval = {used: false, reason: 'unavailable'}`.
 
 Not implemented, and not claimed: reranking · agents or multi-agent workflows · knowledge graphs · PR review · code generation · multi-repository search.
 
@@ -224,7 +219,7 @@ Not implemented, and not claimed: reranking · agents or multi-agent workflows �
 
 ## Contributing
 
-Read [`docs/ENGINEERING_NOTEBOOK.md`](docs/ENGINEERING_NOTEBOOK.md) first. It records the current architecture, the open limitations, and forty decisions with their tradeoffs — so a proposal can build on them instead of rediscovering them. Its TODO checklist is the shortest path to a useful first PR.
+Read [`docs/ENGINEERING_NOTEBOOK.md`](docs/ENGINEERING_NOTEBOOK.md) first. It records the current architecture, the open limitations, and forty-six decisions with their tradeoffs — so a proposal can build on them instead of rediscovering them. Its TODO checklist is the shortest path to a useful first PR.
 
 If a change alters the architecture, update the notebook in the same commit.
 

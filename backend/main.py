@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 # Loaded before any module reads os.environ. `override=False` keeps a real
 # environment (Docker, Render) authoritative over the file.
 load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
-from sys import prefix
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -179,11 +178,30 @@ async def search_repository(request: SearchRequest) -> dict:
 
 @app.get("/index/status")
 async def index_status(repo: str) -> dict:
+    """How many chunks are stored for a repository.
+
+    The one endpoint here without a service token, deliberately: counting points
+    for a public repository spends nothing and reveals nothing. That also makes it
+    the one endpoint an anonymous caller can reach, which is why it must not
+    answer with an exception string — a dead vector store previously produced
+    `Status failed: Unexpected Response: 404 ... b'404 page not found'`, handing
+    the internals of the storage tier to anyone who asked.
+
+    So it degrades instead, the way every other dependency in this system does:
+    an unreachable Qdrant is reported as `available: false` rather than raised.
+    The caller is polling for progress, not correctness — and answering still
+    works without an index, via the whole-repository fallback. The reason is
+    logged server-side, where it belongs.
+    """
     validate_repo_key(repo)
     try:
-        return {"success": True, "data": await get_service().status(repo)}
+        return {"success": True, "data": {**await get_service().status(repo), "available": True}}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Status failed: {exc}") from exc
+        logging.warning("Index status unavailable for %s: %s", repo, exc)
+        return {
+            "success": True,
+            "data": {"repo": repo, "chunks": 0, "indexed": False, "available": False},
+        }
 
 
 @app.post("/ingest/", dependencies=[Depends(require_service_token)])

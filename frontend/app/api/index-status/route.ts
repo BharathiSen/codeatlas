@@ -50,10 +50,18 @@ async function handler(req: NextRequest) {
     const body = await response.json();
     const data = body?.data ?? {};
 
+    /*
+     * `available` is the backend's answer, not an inference from the status code.
+     * /index/status degrades rather than raising when the vector store is
+     * unreachable, so it now answers 200 with `available: false` — reading
+     * ok-ness alone would report a dead Qdrant as available and turn a visible
+     * degradation back into a silent one. Absent (an older backend), the field
+     * defaults to available, which is what a 200 used to mean.
+     */
     return apiSuccess({
       indexed: Boolean(data.indexed),
       chunks: Number(data.chunks ?? 0),
-      available: true,
+      available: data.available !== false,
     });
   } catch (error) {
     // A sleeping or unreachable backend is expected here and must not surface as

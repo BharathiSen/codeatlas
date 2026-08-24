@@ -47,7 +47,10 @@ services:
       # there is a proxy. Set to the number of trusted hops in production.
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
       DATABASE_URL: postgres://codeatlas:${POSTGRES_PASSWORD:-codeatlas}@postgres:5432/codeatlas
-      MAX_REPO_SIZE_KB: ${MAX_REPO_SIZE_KB:-150000}
+      # Matches the application default (collect-repo-data) and .env.example.
+      # The preflight is sized to a 512 MB instance, so the compose default must
+      # not quietly be 15x the documented ceiling — override in .env to raise it.
+      MAX_REPO_SIZE_KB: ${MAX_REPO_SIZE_KB:-10000}
       MAX_PROMPT_TOKENS: ${MAX_PROMPT_TOKENS:-250000}
     depends_on:
       redis:
