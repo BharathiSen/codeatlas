@@ -109,7 +109,7 @@ docker compose --env-file ../.env up --build
 
 Six containers: the web app, the ingestion/retrieval backend, Redis, Qdrant, Postgres, and a one-shot `migrate` service that applies `database/migrations` and exits **before** the web app starts. Only the web app is published — on **`http://localhost:3000`**, not 3001; `pnpm dev` uses 3001 so the two can run side by side.
 
-Sign-in does not work against the Docker stack unless your OAuth app's callback is registered for port 3000 — see §20 of the engineering notebook.
+Sign-in does not work against the Docker stack unless your OAuth app's callback is registered for port 3000 — the stack publishes 3000, while `pnpm dev` uses 3001, and the callback URL must match whichever one you are signing in against.
 </details>
 
 <details>
@@ -124,7 +124,9 @@ cd frontend
 DATABASE_URL='<external-connection-string>?sslmode=require' pnpm db:migrate
 ```
 
-`sslmode=require` is mandatory — Render Postgres refuses plaintext connections, and drizzle-kit's progress spinner swallows the resulting error. §20 of the notebook has the full procedure, the required/optional variable split, and the free-tier caveats (services sleep after 15 minutes idle; free Postgres expires 30 days after creation).
+`sslmode=require` is mandatory — Render Postgres refuses plaintext connections, and drizzle-kit's progress spinner swallows the resulting error.
+
+Free-tier caveats worth knowing before you rely on a deployment: services sleep after 15 minutes idle and take roughly a minute to wake; free Postgres expires 30 days after creation; and the free Key Value store does not persist to disk, so a restart clears the caches *and* the daily quota counters.
 </details>
 
 ---
@@ -195,7 +197,7 @@ backend/            FastAPI ingestion + retrieval service
   eval/             Retrieval-quality harness (runs in CI)
 database/           Checked-in SQL migrations
 docker/             Dockerfiles + compose stack
-docs/               Engineering notebook — start here
+docs/               Architecture diagrams and images
 render.yaml         Render Blueprint
 .env                Shared configuration for both services
 ```
@@ -204,7 +206,7 @@ render.yaml         Render Blueprint
 
 ## Known limitations
 
-Measured, not guessed — the notebook carries the evidence for each:
+Measured, not guessed:
 
 - **The keyword arm rarely fires on natural language.** Qdrant's `MatchText` requires every query token to appear in a chunk, so a full sentence matches nothing and retrieval is effectively dense-only for typical questions. Identifier lookups do use both arms.
 - **AST chunking only reaches top-level definitions.** A module wrapped in an IIFE, or a single large class, degrades to windowed chunks — silently.
@@ -219,9 +221,14 @@ Not implemented, and not claimed: reranking · agents or multi-agent workflows �
 
 ## Contributing
 
-Read [`docs/ENGINEERING_NOTEBOOK.md`](docs/ENGINEERING_NOTEBOOK.md) first. It records the current architecture, the open limitations, and forty-six decisions with their tradeoffs — so a proposal can build on them instead of rediscovering them. Its TODO checklist is the shortest path to a useful first PR.
+Issues and pull requests are welcome. Keep changes scoped, follow the surrounding style, and check that the gates pass before opening a PR:
 
-If a change alters the architecture, update the notebook in the same commit.
+```bash
+cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
+cd backend  && python -m pytest -q
+```
+
+The limitations above are deliberate and documented rather than hidden — if you are changing one of them, say so in the PR description.
 
 ## License
 

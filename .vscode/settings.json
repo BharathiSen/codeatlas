@@ -5,14 +5,18 @@
         "codeatlas",
         "fastembed",
         "GITINGEST",
+        "pipefail",
         "pycache",
+        "pytest",
         "Qdrant",
         "regenerable",
         "rulebook",
         "Rybbit",
+        "unconfigured",
         "uvicorn",
         "venv",
-        "vercel"
+        "vercel",
+        "vitest"
     ],
     "git.ignoreLimitWarning": true
 }
