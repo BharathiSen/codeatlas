@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { RetrievalReportedReason } from '@/lib/retrieval';
 
 /**
  * Answer-level cache.
@@ -43,7 +44,10 @@ export interface CachedAnswer {
     estimatedPromptTokens: number;
     truncated: boolean;
     historyTurns: number;
-    retrieval: { used: boolean; chunks?: number };
+    // `reason` is present exactly when `used` is false, and is replayed
+    // verbatim on a cache hit so a cached answer reports the same provenance
+    // the live one did.
+    retrieval: { used: boolean; chunks?: number; reason?: RetrievalReportedReason };
   };
 }
 

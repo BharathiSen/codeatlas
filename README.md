@@ -63,7 +63,7 @@ Three properties follow:
 ## Architecture
 
 <div align="center">
-  <img src="docs/Readmearch.png" alt="CodeAtlas architecture — frontend, Next.js API routes, FastAPI retrieval service, data stores and external services" width="100%" />
+  <img src="docs/architecture.svg" alt="CodeAtlas architecture — browser clients, the Next.js API orchestration layer, the control plane, the Python FastAPI retrieval service, Redis, PostgreSQL, Qdrant, external GitHub and Gemini APIs, and the end-to-end question flow" width="100%" />
 </div>
 
 **Two services, three stores, one external vector database.**

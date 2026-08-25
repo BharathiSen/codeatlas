@@ -78,6 +78,14 @@ beforeEach(() => {
   vi.mocked(RateLimiter.increment).mockResolvedValue({ ...rateLimit })
   vi.mocked(retrieve).mockResolvedValue({ chunks: [], available: false })
   vi.mocked(RedisCacheManager.getRaw).mockResolvedValue(null)
+  // Reset explicitly: `clearAllMocks` clears calls but keeps implementations, so
+  // a test that makes the repository cache miss would otherwise leak that into
+  // every test declared after it.
+  vi.mocked(RedisCacheManager.hasCache).mockResolvedValue(true)
+  vi.mocked(RedisCacheManager.getFromCache).mockResolvedValue({
+    tree: "src/\n  index.ts",
+    content: "console.log(1)",
+  })
 })
 
 describe("POST /api/gemini — validation", () => {
@@ -181,6 +189,33 @@ describe("POST /api/gemini — success envelope", () => {
 
     const body = await (await POST(post(valid))).json()
     expect(body.usage.retrieval).toEqual({ used: true, chunks: 1 })
+  })
+
+  /*
+   * D-48. These two paths never call retrieval at all. They used to report
+   * `reason: 'unavailable'` anyway, because the reason defaulted when unset —
+   * so "we did not ask" was indistinguishable from "the vector store is down",
+   * which is the ambiguity D-44 added this field to remove.
+   */
+  it("reports a file-scoped question as a deliberate skip, not an outage", async () => {
+    const body = await (
+      await POST(post({ ...valid, filePath: "lib/a.ts", fetchOnlyCurrentFile: true }))
+    ).json()
+
+    expect(body.usage.retrieval).toEqual({ used: false, reason: "file_scoped" })
+    expect(retrieve).not.toHaveBeenCalled()
+  })
+
+  it("reports absent repository context as not attempted, not unavailable", async () => {
+    // hasCache says yes, getFromCache says no — the key lapsed between the two.
+    // There is nothing to retrieve against, so retrieval is never reached.
+    vi.mocked(RedisCacheManager.getFromCache).mockResolvedValue(null)
+
+    const body = await (await POST(post(valid))).json()
+
+    expect(body.usage.retrieval).toEqual({ used: false, reason: "not_attempted" })
+    expect(retrieve).not.toHaveBeenCalled()
+    expect(body.success).toBe(true) // still answers
   })
 })
 

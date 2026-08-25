@@ -15,7 +15,7 @@ import { RateLimiter } from '@/lib/rate-limiter';
 import { auth, getQuotaSubject } from '@/lib/auth';
 import { persistTurn } from '@/lib/conversations';
 import { apiError, ErrorCode, isValidRepoSegment } from '@/lib/api-response';
-import { buildRetrievedContext, retrieve } from '@/lib/retrieval';
+import { buildRetrievedContext, retrieve, type RetrievalReportedReason } from '@/lib/retrieval';
 import { buildRetrievedPrompt } from '@/lib/prompt-generator';
 import { currentRequestId, withRequestId } from '@/lib/request-context';
 import {
@@ -232,8 +232,13 @@ async function handlePost(req: Request) {
      * kept answering, and reported only `used: false`, which is equally
      * consistent with "not indexed yet". That ambiguity is how Qdrant went
      * unauthenticated in production without anyone noticing (D-42).
+     *
+     * Every path that reaches generation assigns this, including the paths that
+     * skip retrieval rather than fail at it. It used to default to
+     * `unavailable`, which reported an infrastructure failure on requests where
+     * retrieval was never called (D-48).
      */
-    let retrievalFallbackReason: string | undefined;
+    let retrievalFallbackReason: RetrievalReportedReason | undefined;
     let contextStats: ContextStats = { files: 0, totalChars: 0 };
 
     // Start context preparation
@@ -255,6 +260,10 @@ Provide a detailed, technical response that directly addresses the user's query 
 
       contextStats.files = 1;
       contextStats.totalChars = fileContent.length;
+      // Not a failure: a question scoped to one open file is answered from that
+      // file, so a repository-wide search is the wrong tool rather than a
+      // broken one. Reported so the log does not read as an outage.
+      retrievalFallbackReason = 'file_scoped';
     } else {
       // For general queries, use GitIngest data
       logger.info(`Collecting repository data for ${repoKey} using GitIngest...`, { prefix: 'Query' });
@@ -345,6 +354,15 @@ Provide a detailed, technical response that directly addresses the user's query 
         }
 
         if (!repoData) {
+          /*
+           * Reached only when the repository cache is still empty after the
+           * ingestion call above — so there is nothing to retrieve against and
+           * retrieval is never attempted. Recorded as such rather than left to
+           * default to `unavailable`, which blamed the vector store for an
+           * ingestion problem (D-48).
+           */
+          retrievalFallbackReason = 'not_attempted';
+
           // Existing GitIngest processing logic
           const gitIngestData: GitIngestData = await getRepoDataForPrompt(username, repo);
 
@@ -378,6 +396,8 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
         }
       } catch (error) {
         logger.error('Error generating prompt with GitIngest: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        // Context assembly failed outright, so retrieval was never reached.
+        retrievalFallbackReason = 'not_attempted';
         prompt = `You are a knowledgeable AI assistant with deep understanding of software development and GitHub repositories. 
 
 Repository: ${repoKey}
@@ -448,7 +468,7 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
               historyTurns,
               retrieval: retrievalUsed
         ? { used: true, chunks: chunksUsed }
-        : { used: false, reason: retrievalFallbackReason ?? 'unavailable' },
+        : { used: false, reason: retrievalFallbackReason ?? 'not_attempted' },
             };
 
             if (answerKey && full) {
@@ -486,7 +506,7 @@ ${userQueryPrompt}Provide an insightful, technical response that directly addres
       historyTurns,
       retrieval: retrievalUsed
         ? { used: true, chunks: chunksUsed }
-        : { used: false, reason: retrievalFallbackReason ?? 'unavailable' },
+        : { used: false, reason: retrievalFallbackReason ?? 'not_attempted' },
     };
 
     // Written after the answer succeeded, so a failed generation is never cached.

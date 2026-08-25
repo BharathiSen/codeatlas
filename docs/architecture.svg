@@ -1,0 +1,194 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="994" viewBox="0 0 1440 994" role="img" aria-label="CodeAtlas architecture: browser clients, Next.js API orchestration layer, the control plane, the Python FastAPI retrieval service, Redis, PostgreSQL, Qdrant, external GitHub and Gemini APIs, and the end-to-end question flow."><defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs>
+<rect x="0" y="0" width="1440" height="994" fill="#ffffff"/>
+<text x="24" y="38" text-anchor="start" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="22" font-weight="800" fill="#0f172a">CodeAtlas — Architecture</text>
+<text x="24" y="58" text-anchor="start" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748b">Generated from the implementation. Two services, three stores, two external APIs.</text>
+<text x="1416" y="38" text-anchor="end" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="11" font-weight="600" fill="#94a3b8">docs/architecture.svg</text>
+<text x="1416" y="58" text-anchor="end" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" fill="#94a3b8">Source of truth: docs/ENGINEERING_NOTEBOOK.md</text>
+<rect x="24" y="78" width="1392" height="96" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="40" y="102" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1d4ed8">BROWSER — client components</text>
+<text x="1400" y="102" text-anchor="end" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#64748b">React / Next.js App Router</text>
+<rect x="40.0" y="112" width="216.66666666666666" height="46" rx="7" fill="#ffffff" stroke="#bfdbfe" stroke-width="1.2"/>
+<text x="148.33333333333331" y="133" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">Command Bar</text>
+<text x="148.33333333333331" y="150" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">ingests, polls, routes</text>
+<rect x="268.66666666666663" y="112" width="216.66666666666666" height="46" rx="7" fill="#ffffff" stroke="#bfdbfe" stroke-width="1.2"/>
+<text x="376.99999999999994" y="133" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">AI Assistant</text>
+<text x="376.99999999999994" y="150" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">NDJSON stream</text>
+<rect x="497.3333333333333" y="112" width="216.66666666666666" height="46" rx="7" fill="#ffffff" stroke="#bfdbfe" stroke-width="1.2"/>
+<text x="605.6666666666666" y="133" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">File Explorer + Viewer</text>
+<text x="605.6666666666666" y="150" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">?file= deep link</text>
+<rect x="726.0" y="112" width="216.66666666666666" height="46" rx="7" fill="#ffffff" stroke="#bfdbfe" stroke-width="1.2"/>
+<text x="834.3333333333334" y="133" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">Markdown</text>
+<text x="834.3333333333334" y="150" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">paths become citations</text>
+<rect x="954.6666666666666" y="112" width="216.66666666666666" height="46" rx="7" fill="#ffffff" stroke="#bfdbfe" stroke-width="1.2"/>
+<text x="1063.0" y="133" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">Conversation Menu</text>
+<text x="1063.0" y="150" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">saved chats</text>
+<rect x="1183.3333333333333" y="112" width="216.66666666666666" height="46" rx="7" fill="#ffffff" stroke="#bfdbfe" stroke-width="1.2"/>
+<text x="1291.6666666666665" y="133" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">Auth Control</text>
+<text x="1291.6666666666665" y="150" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">GitHub sign-in</text>
+<rect x="24" y="200" width="1392" height="158" rx="10" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1.5"/>
+<text x="40" y="224" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#047857">NEXT.JS API ROUTES — orchestration layer</text>
+<text x="1400" y="224" text-anchor="end" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#64748b">quota · caches · prompt budget · auth · persistence · request id</text>
+<rect x="40.0" y="234" width="262.4" height="46" rx="7" fill="#ffffff" stroke="#a7f3d0" stroke-width="1.2"/>
+<text x="171.2" y="255" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">/api/collect-repo-data</text>
+<text x="171.2" y="272" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">ingest + cache + index</text>
+<rect x="314.4" y="234" width="262.4" height="46" rx="7" fill="#ffffff" stroke="#a7f3d0" stroke-width="1.2"/>
+<text x="445.59999999999997" y="255" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">/api/gemini</text>
+<text x="445.59999999999997" y="272" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">answering pipeline</text>
+<rect x="588.8" y="234" width="262.4" height="46" rx="7" fill="#ffffff" stroke="#a7f3d0" stroke-width="1.2"/>
+<text x="720.0" y="255" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">/api/insights</text>
+<text x="720.0" y="272" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">6 whole-repo analyses</text>
+<rect x="863.1999999999999" y="234" width="262.4" height="46" rx="7" fill="#ffffff" stroke="#a7f3d0" stroke-width="1.2"/>
+<text x="994.3999999999999" y="255" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">/api/file-content</text>
+<text x="994.3999999999999" y="272" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">single file</text>
+<rect x="1137.6" y="234" width="262.4" height="46" rx="7" fill="#ffffff" stroke="#a7f3d0" stroke-width="1.2"/>
+<text x="1268.8" y="255" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">/api/index-status</text>
+<text x="1268.8" y="272" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">indexing progress</text>
+<rect x="40.0" y="292" width="262.4" height="46" rx="7" fill="#ffffff" stroke="#a7f3d0" stroke-width="1.2"/>
+<text x="171.2" y="313" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">/api/conversations</text>
+<text x="171.2" y="330" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">GET list only</text>
+<rect x="314.4" y="292" width="262.4" height="46" rx="7" fill="#ffffff" stroke="#a7f3d0" stroke-width="1.2"/>
+<text x="445.59999999999997" y="313" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">/api/conversations/[id]</text>
+<text x="445.59999999999997" y="330" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">GET · DELETE</text>
+<rect x="588.8" y="292" width="262.4" height="46" rx="7" fill="#ffffff" stroke="#a7f3d0" stroke-width="1.2"/>
+<text x="720.0" y="313" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">/api/github-user</text>
+<text x="720.0" y="330" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">profile + repos</text>
+<rect x="863.1999999999999" y="292" width="262.4" height="46" rx="7" fill="#ffffff" stroke="#a7f3d0" stroke-width="1.2"/>
+<text x="994.3999999999999" y="313" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">/api/rate-limit</text>
+<text x="994.3999999999999" y="330" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">quota introspection</text>
+<rect x="1137.6" y="292" width="262.4" height="46" rx="7" fill="#ffffff" stroke="#a7f3d0" stroke-width="1.2"/>
+<text x="1268.8" y="313" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">/api/auth/[...nextauth]</text>
+<text x="1268.8" y="330" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">OAuth, read:user</text>
+<line x1="720.0" y1="178" x2="720.0" y2="196" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="24" y="384" width="1392" height="92" rx="10" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.5"/>
+<text x="40" y="408" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#b45309">THE CONTROL PLANE — what /api/gemini does, in this order</text>
+<text x="1400" y="408" text-anchor="end" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#64748b">a refusal never reaches the model</text>
+<rect x="40.0" y="418" width="201.66666666666666" height="46" rx="7" fill="#ffffff" stroke="#fcd34d" stroke-width="1.2"/>
+<text x="140.83333333333331" y="439" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">1. Quota check</text>
+<text x="140.83333333333331" y="456" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">Redis INCR · fails closed</text>
+<line x1="245.66666666666666" y1="441" x2="267.66666666666663" y2="441" stroke="#d97706" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="271.66666666666663" y="418" width="201.66666666666666" height="46" rx="7" fill="#ffffff" stroke="#fcd34d" stroke-width="1.2"/>
+<text x="372.49999999999994" y="439" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">2. Answer cache</text>
+<text x="372.49999999999994" y="456" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">hit = no model call, no quota</text>
+<line x1="477.33333333333326" y1="441" x2="499.33333333333326" y2="441" stroke="#d97706" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="503.3333333333333" y="418" width="201.66666666666666" height="46" rx="7" fill="#ffffff" stroke="#fcd34d" stroke-width="1.2"/>
+<text x="604.1666666666666" y="439" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">3. Repo context</text>
+<text x="604.1666666666666" y="456" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">Redis 6h cache</text>
+<line x1="709.0" y1="441" x2="731.0" y2="441" stroke="#d97706" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="735.0" y="418" width="201.66666666666666" height="46" rx="7" fill="#ffffff" stroke="#fcd34d" stroke-width="1.2"/>
+<text x="835.8333333333334" y="439" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">4. Retrieval</text>
+<text x="835.8333333333334" y="456" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">dense + keyword + RRF</text>
+<line x1="940.6666666666666" y1="441" x2="962.6666666666666" y2="441" stroke="#d97706" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="966.6666666666666" y="418" width="201.66666666666666" height="46" rx="7" fill="#ffffff" stroke="#fcd34d" stroke-width="1.2"/>
+<text x="1067.5" y="439" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">5. Token budget</text>
+<text x="1067.5" y="456" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">413 before dispatch</text>
+<line x1="1172.3333333333333" y1="441" x2="1194.3333333333333" y2="441" stroke="#d97706" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="1198.3333333333333" y="418" width="201.66666666666666" height="46" rx="7" fill="#ffffff" stroke="#fcd34d" stroke-width="1.2"/>
+<text x="1299.1666666666665" y="439" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">6. Generate</text>
+<text x="1299.1666666666665" y="456" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">quota incremented after</text>
+<line x1="720.0" y1="362" x2="720.0" y2="380" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="24" y="502" width="660" height="190" rx="10" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1.5"/>
+<text x="40" y="526" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#6d28d9">PYTHON SERVICE (FastAPI)</text>
+<text x="668" y="526" text-anchor="end" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#64748b">server-to-server only</text>
+<rect x="40.0" y="536" width="116.0" height="46" rx="7" fill="#ffffff" stroke="#ddd6fe" stroke-width="1.2"/>
+<text x="98.0" y="557" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">🔒 /ingest/</text>
+<text x="98.0" y="574" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">clone + flatten</text>
+<rect x="168.0" y="536" width="116.0" height="46" rx="7" fill="#ffffff" stroke="#ddd6fe" stroke-width="1.2"/>
+<text x="226.0" y="557" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">🔒 /index/</text>
+<text x="226.0" y="574" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">chunk + embed</text>
+<rect x="296.0" y="536" width="116.0" height="46" rx="7" fill="#ffffff" stroke="#ddd6fe" stroke-width="1.2"/>
+<text x="354.0" y="557" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">🔒 /search/</text>
+<text x="354.0" y="574" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">hybrid + RRF</text>
+<rect x="424.0" y="536" width="116.0" height="46" rx="7" fill="#ffffff" stroke="#ddd6fe" stroke-width="1.2"/>
+<text x="482.0" y="557" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">/index/status</text>
+<text x="482.0" y="574" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">count points</text>
+<rect x="552.0" y="536" width="116.0" height="46" rx="7" fill="#ffffff" stroke="#ddd6fe" stroke-width="1.2"/>
+<text x="610.0" y="557" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">/ping</text>
+<text x="610.0" y="574" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">health</text>
+<rect x="40.0" y="594" width="201.33333333333334" height="46" rx="7" fill="#ffffff" stroke="#ddd6fe" stroke-width="1.2"/>
+<text x="140.66666666666669" y="615" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">chunking.py</text>
+<text x="140.66666666666669" y="632" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">tree-sitter AST, SHA/file</text>
+<rect x="253.33333333333334" y="594" width="201.33333333333334" height="46" rx="7" fill="#ffffff" stroke="#ddd6fe" stroke-width="1.2"/>
+<text x="354.0" y="615" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">embeddings.py</text>
+<text x="354.0" y="632" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">gemini 768 | local 384</text>
+<rect x="466.6666666666667" y="594" width="201.33333333333334" height="46" rx="7" fill="#ffffff" stroke="#ddd6fe" stroke-width="1.2"/>
+<text x="567.3333333333334" y="615" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" font-weight="600" fill="#0f172a">retrieval.py</text>
+<text x="567.3333333333334" y="632" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">Qdrant, incremental</text>
+<text x="40" y="676" text-anchor="start" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="400" fill="#6d28d9">gitingest is a library imported into this process — not a separate service. 🔒 = requires x-service-token.</text>
+<rect x="700" y="502" width="374" height="190" rx="10" fill="#fefce8" stroke="#fde68a" stroke-width="1.5"/>
+<text x="716" y="526" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#a16207">VECTOR STORE</text>
+<text x="1058" y="526" text-anchor="end" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#64748b">external lifecycle</text>
+<rect x="716" y="536" width="342" height="74" rx="7" fill="#ffffff" stroke="#fde68a" stroke-width="1.2"/>
+<text x="730" y="558" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#0f172a">Qdrant Cloud</text>
+<text x="730" y="576" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#64748b">one collection: codeatlas_chunks · cosine</text>
+<text x="730" y="590" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#64748b">every repository filtered by repo payload</text>
+<text x="716" y="630" text-anchor="start" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="700" fill="#a16207">Payload indexes</text>
+<text x="716" y="646" text-anchor="start" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10" font-weight="400" fill="#64748b">repo · path · file_sha — keyword</text>
+<text x="716" y="660" text-anchor="start" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10" font-weight="400" fill="#64748b">text — full-text, backs the keyword arm</text>
+<text x="716" y="678" text-anchor="start" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10" font-weight="400" fill="#a16207">Reached only via the Python service.</text>
+<rect x="1090" y="502" width="326" height="190" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="1106" y="526" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#c2410c">DATA STORES</text>
+<text x="1400" y="526" text-anchor="end" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#64748b">owned by Next.js</text>
+<rect x="1106" y="536" width="294" height="68" rx="7" fill="#ffffff" stroke="#fed7aa" stroke-width="1.2"/>
+<text x="1120" y="558" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#0f172a">Redis</text>
+<text x="1120" y="576" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#64748b">repo · answer · insight caches (6h)</text>
+<text x="1120" y="590" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#64748b">ratelimit:v2 counters — atomic INCR</text>
+<rect x="1106" y="614" width="294" height="68" rx="7" fill="#ffffff" stroke="#fed7aa" stroke-width="1.2"/>
+<text x="1120" y="636" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#0f172a">PostgreSQL — optional</text>
+<text x="1120" y="654" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#64748b">users · repositories · conversations</text>
+<text x="1120" y="668" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#64748b">messages — ON DELETE CASCADE</text>
+<line x1="354.0" y1="480" x2="354.0" y2="498" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="1253.0" y1="480" x2="1253.0" y2="498" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="688" y1="597.0" x2="696" y2="597.0" stroke="#a16207" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<rect x="24" y="718" width="1392" height="92" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="40" y="742" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#334155">EXTERNAL SERVICES</text>
+<text x="1400" y="742" text-anchor="end" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#64748b">every call is server-side — no secret reaches the browser</text>
+<rect x="40.0" y="752" width="331.0" height="46" rx="7" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="205.5" y="773" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">GitHub API</text>
+<text x="205.5" y="790" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">metadata · file contents · 5,000/hr</text>
+<rect x="383.0" y="752" width="331.0" height="46" rx="7" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="548.5" y="773" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">GitHub OAuth</text>
+<text x="548.5" y="790" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">read:user only</text>
+<rect x="726.0" y="752" width="331.0" height="46" rx="7" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="891.5" y="773" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">Google Gemini — answering</text>
+<text x="891.5" y="790" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">flash-lite-latest · 2 keys</text>
+<rect x="1069.0" y="752" width="331.0" height="46" rx="7" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="1234.5" y="773" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#0f172a">Google Gemini — embeddings</text>
+<text x="1234.5" y="790" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#64748b">batched 8 · backoff</text>
+<rect x="24" y="836" width="1392" height="96" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="40" y="860" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#334155">END TO END — one question</text>
+<rect x="40.0" y="874" width="110.9090909090909" height="38" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="95.45454545454545" y="897" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="600" fill="#0f172a">Question</text>
+<line x1="152.9090909090909" y1="893" x2="162.9090909090909" y2="893" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#a)"/>
+<rect x="164.9090909090909" y="874" width="110.9090909090909" height="38" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="220.36363636363637" y="897" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="600" fill="#0f172a">Quota (Redis)</text>
+<line x1="277.8181818181818" y1="893" x2="287.8181818181818" y2="893" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#a)"/>
+<rect x="289.8181818181818" y="874" width="110.9090909090909" height="38" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="345.27272727272725" y="897" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="600" fill="#0f172a">Answer cache</text>
+<line x1="402.72727272727275" y1="893" x2="412.72727272727275" y2="893" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#a)"/>
+<rect x="414.72727272727275" y="874" width="110.9090909090909" height="38" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="470.1818181818182" y="897" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="600" fill="#0f172a">Repo context</text>
+<line x1="527.6363636363636" y1="893" x2="537.6363636363636" y2="893" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#a)"/>
+<rect x="539.6363636363636" y="874" width="110.9090909090909" height="38" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="595.0909090909091" y="897" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="600" fill="#0f172a">/search/ (FastAPI)</text>
+<line x1="652.5454545454545" y1="893" x2="662.5454545454545" y2="893" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#a)"/>
+<rect x="664.5454545454545" y="874" width="110.9090909090909" height="38" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="720.0" y="897" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="600" fill="#0f172a">Qdrant hybrid</text>
+<line x1="777.4545454545454" y1="893" x2="787.4545454545454" y2="893" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#a)"/>
+<rect x="789.4545454545455" y="874" width="110.9090909090909" height="38" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="844.909090909091" y="897" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="600" fill="#0f172a">RRF top-k</text>
+<line x1="902.3636363636364" y1="893" x2="912.3636363636364" y2="893" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#a)"/>
+<rect x="914.3636363636364" y="874" width="110.9090909090909" height="38" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="969.8181818181819" y="897" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="600" fill="#0f172a">Token budget</text>
+<line x1="1027.2727272727273" y1="893" x2="1037.2727272727273" y2="893" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#a)"/>
+<rect x="1039.2727272727273" y="874" width="110.9090909090909" height="38" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="1094.7272727272727" y="897" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="600" fill="#0f172a">Gemini</text>
+<line x1="1152.1818181818182" y1="893" x2="1162.1818181818182" y2="893" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#a)"/>
+<rect x="1164.1818181818182" y="874" width="110.9090909090909" height="38" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="1219.6363636363637" y="897" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="600" fill="#0f172a">Stream + citations</text>
+<line x1="1277.0909090909092" y1="893" x2="1287.0909090909092" y2="893" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#a)"/>
+<rect x="1289.090909090909" y="874" width="110.9090909090909" height="38" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="1344.5454545454545" y="897" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="600" fill="#0f172a">Postgres</text>
+<text x="24" y="958" text-anchor="start" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="11" font-weight="700" fill="#0f172a">DEGRADATION:</text>
+<text x="120" y="958" text-anchor="start" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" fill="#475569">Redis down → 503 quota_unavailable (fails closed)   ·   Qdrant down → whole-repo context, reason: 'unavailable'   ·   not indexed → 'no_matches'</text>
+<text x="120" y="974" text-anchor="start" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" fill="#475569">not asked → 'file_scoped' | 'not_attempted'   ·   Postgres down → conversationId: null, answering unaffected   ·   parser down → file is windowed, never lost</text>
+</svg>

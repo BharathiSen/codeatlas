@@ -49,6 +49,27 @@ export interface RetrievedChunk {
  */
 export type RetrievalFallbackReason = 'unavailable' | 'no_matches';
 
+/**
+ * Every reason `usage.retrieval` can carry on an answer.
+ *
+ * The two above come from `retrieve()` and mean it was *asked* and could not
+ * help. The two below mean it was never asked at all, and they exist because
+ * omitting them was itself a reporting fault (D-48): the answering route
+ * defaulted an unset reason to `unavailable`, so a question that never reached
+ * retrieval was indistinguishable from a dead vector store — the exact
+ * ambiguity D-44 introduced this field to remove.
+ *
+ * - `file_scoped` — deliberate. The question is about one open file, so a
+ *   repository-wide search is the wrong tool, not a failed one.
+ * - `not_attempted` — there was no repository context to search against,
+ *   normally because ingestion did not populate the cache. An infrastructure
+ *   signal, but a different one from `unavailable`.
+ */
+export type RetrievalReportedReason =
+  | RetrievalFallbackReason
+  | 'file_scoped'
+  | 'not_attempted';
+
 export interface RetrievalResult {
   chunks: RetrievedChunk[];
   /** False when retrieval was unavailable and the caller should fall back. */
